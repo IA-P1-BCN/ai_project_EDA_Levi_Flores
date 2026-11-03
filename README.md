@@ -121,3 +121,5 @@ Cada nivel incluye todo lo del anterior. Pueden elegir hasta dónde llegar, pero
 - Visualización de datos (seaborn, matplotlib, plotly)
 - Análisis exploratorio detallado (EDA)
 - Comunicar resultados de datos a público no técnico
+
+
