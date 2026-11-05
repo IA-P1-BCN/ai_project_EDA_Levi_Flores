@@ -1,30 +1,46 @@
-## 📌 Descripción de los Cambios
-Describe de manera resumida y clara qué cambios introduce este Pull Request y cuál es su objetivo.
-
-## 🏷️ Tipo de Cambio
-Marca con una `x` las casillas que correspondan:
-- [ ] 🟢 **Nivel Esencial:** Carga de datos, limpieza básica, visualizaciones univariadas/bivariadas.
-- [ ] 🟡 **Nivel Medio:** Ingeniería de variables, detección de atípicos, matriz de correlación o tendencias.
-- [ ] 🟠 **Nivel Avanzado:** Normalización, enriquecimiento con datasets externos (`merge`).
-- [ ] 📄 **Documentación / Informe:** Cambios en el `README.md`, `Briefing.md` o informe ejecutivo.
-- [ ] 🐛 **Corrección de Errores (Bug fix):** Solución de fallos en ejecución o librerías.
-- [ ] ⚙️ **Infraestructura / CI:** Modificación de dependencias, scripts o GitHub Actions.
-
-## 🔗 Issue Relacionada
-Closes #(número de issue) o Relacionado con #(número de issue)
-
-## 🧪 Resumen de Pruebas y Validación Realizadas
-- [ ] El notebook se ejecuta de arriba a abajo sin errores (`Kernel -> Restart & Run All`).
-- [ ] Se verificaron los tipos de datos, nulos y duplicados.
-- [ ] Los gráficos cuentan con título, etiquetas en los ejes y leyendas claras.
-- [ ] El código está limpio, modular y explicado con celdas de Markdown intermedias.
-
-## 📦 Dependencias y Entorno
-- [ ] ¿Requiere nuevas librerías? (Si es sí, especifícalas y actualiza `requirements.txt`).
-- [ ] No se suben archivos pesados innecesarios ni datos confidenciales / API keys.
-
-## 🖼️ Capturas de Pantalla / Evidencia (Opcional)
-Añade gráficos relevantes o capturas de la salida para facilitar la revisión.
+## 📋 Registro y Revisión de Etapa del Proyecto (Para Consulta del Profesor)
 
 ---
-*Antes de solicitar la revisión, asegúrate de que todos los checks del CI pasen correctamente.*
+
+### 🎯 1. ¿Qué se ha hecho en esta rama?
+*(Explica detalladamente las tareas, transformaciones o análisis realizados en esta fase del EDA).*
+
+- 
+
+---
+
+### 📂 2. ¿Qué archivos se han modificado o añadido?
+*(Lista los notebooks, scripts, imágenes o documentación creados o editados en este Pull Request).*
+
+- [ ] `notebooks/...`
+- [ ] `assets/...`
+- [ ] `requirements.txt` / `README.md` / otros:
+
+---
+
+### 🧪 3. ¿Se ejecuta el notebook de arriba a abajo sin errores?
+*(Checklist indispensable antes de aprobar y mergear hacia main).*
+
+- [ ] **Ejecución secuencial limpia:** Se ha ejecutado `Kernel -> Restart & Run All` y todas las celdas corren sin excepciones ni advertencias bloqueantes.
+- [ ] **Documentación en celdas Markdown:** Cada celda de código cuenta con explicaciones del *porqué* y el *para qué* de la operación.
+- [ ] **Visualizaciones con formato:** Todos los gráficos generados incluyen títulos explicativos, nombres de ejes con unidades y leyendas comprensibles.
+- [ ] **Gestión de memoria / datos:** No se suben datasets pesados que superen los límites recomendados ni archivos temporales.
+
+---
+
+### 💡 4. Conclusiones parciales e Insights encontrados
+*(Resume los principales hallazgos, patrones o anomalías detectadas en los datos durante esta etapa).*
+
+1. **Hallazgo 1:** 
+2. **Hallazgo 2:** 
+3. **Decisión metodológica:** 
+
+---
+
+### ❓ 5. Dudas o preguntas para el profesor (Opcional)
+*(Apunta aquí cualquier duda conceptual, metodológica o técnica en la que requieras feedback específico).*
+
+- 
+
+---
+> ⚠️ **Recordatorio:** Por motivos de trazabilidad académica, esta rama **NO debe eliminarse** tras completar el merge en `main`.

@@ -1,2 +1,46 @@
+# Entornos virtuales
+EDA/
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Variables de entorno y credenciales
+.env
+.env.*
+*.env
+
+# Archivos temporales de Jupyter Notebooks
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# IDEs y editores de código
 .idea/
-docs/Briefing.md
+.vscode/
+*.swp
+*.swo
+*~
+
+# Archivos del sistema operativo (macOS y Windows)
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# Bytecode y caches de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Caches de pruebas y linters
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
