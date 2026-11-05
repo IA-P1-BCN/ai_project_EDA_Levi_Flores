@@ -1,130 +1,123 @@
-# 📊 Proyecto EDA: Análisis Exploratorio de Datos
+# 📊 Exploratory Data Analysis (EDA) — Customer Messy Data
 
-¡Bienvenido al repositorio del proyecto **ai_project_EDA**! 
+![Project Banner](assets/minidatathon.PNG)
 
-Este proyecto simula un caso real de consultoría de datos donde se realiza un **Análisis Exploratorio de Datos (EDA)** exhaustivo sobre un dataset del mundo real. El objetivo no es únicamente procesar y limpiar datos, sino descubrir la historia oculta tras ellos y transformar números en **información estratégica y accionable**, comunicada mediante visualizaciones claras y un informe ejecutivo orientado a la toma de decisiones.
+Welcome to the **`ai_project_EDA_Levi_Flores`** repository!
 
-> 📌 **Nota sobre la guía docente:** La especificación y pautas académicas originales se encuentran intactas en el archivo [`docs/Briefing.md`](docs/Briefing.md).
+This project simulates a real-world data consulting engagement performing an end-to-end **Exploratory Data Analysis (EDA)** on a dirty customer dataset (**"Customer Messy Data"**). The objective is not merely to clean records, but to diagnose structural data quality flaws, uncover actionable patterns, and deliver executive-ready visualisations and strategic insights.
+
+> 📌 **Academic Briefing:** The original project specification is preserved intact in [`docs/Briefing.md`](docs/Briefing.md). The detailed operational schedule and task breakdown are documented in [`docs/Work_Plan.md`](docs/Work_Plan.md).
 
 ---
 
-## ⚙️ Entorno de Ejecución
+## 🗂️ Dataset Attribution & Metadata
 
-Para garantizar la reproducibilidad completa del análisis, el proyecto utiliza un entorno virtual de Python aislado:
+| Property | Details |
+|---|---|
+| **Dataset Title** | **Customer Messy Data** (`messy_customer_data.csv`) |
+| **Source / URL** | [Kaggle — Customer Messy Data (`ruchikakumbhar1806/customer-messy-data`)](https://www.kaggle.com/datasets/ruchikakumbhar1806/customer-messy-data) |
+| **Download Date** | `2026-11-05` |
+| **Dimensions** | `10,000` rows × `12` columns |
+| **Licence / Attribution** | Public dataset on Kaggle by author *Ruchika Kumbhar* (used for educational & exploratory data analysis purposes). |
+| **Local Raw Path** | `data/raw/messy_customer_data.csv` *(read-only, never modified in place)* |
+| **Processed Data Path** | `data/processed/customers_clean_v1.csv` *(generated deterministically by notebooks / pipeline)* |
 
-* **Nombre del entorno:** `EDA`
-* **Versión de Python:** `Python 3.12` (específicamente `3.12.10` / rama `3.12.x`)
+---
 
-### 🔌 Activación del entorno virtual
+## 👥 Operating Model & Roles
 
-Antes de ejecutar o instalar cualquier librería, asegúrate de activar el entorno según tu sistema operativo y terminal:
+| Role | Responsibilities |
+|---|---|
+| **Author / Sole Developer (`@levifvy`)** | Levi Flores — owns all branches, commits, notebooks, Pull Requests, self-reviews, approvals and squash-merges. |
+| **Professor (Read-Only Auditor)** | Observes development progress, GitHub Projects boards, commit history and AI-assisted workflows. **Does not approve or merge Pull Requests.** |
+| **Language Policy** | All repository artifacts (code, notebooks, Markdown documentation, chart labels, commits, Issues and PRs) are written in **English**. |
 
-#### En Windows:
-* **PowerShell:**
-  ```powershell
-  .\EDA\Scripts\Activate.ps1
-  ```
-  *(Si el sistema bloquea la ejecución de scripts, puedes habilitarla temporalmente con: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process`)*
+---
 
-* **Símbolo del sistema (CMD):**
-  ```cmd
-  .\EDA\Scripts\activate.bat
-  ```
+## ⚙️ Execution Environment
 
-#### En Linux / macOS (si aplica):
+To ensure full reproducibility, the project uses an isolated Python virtual environment:
+
+- **Virtual Environment Name:** `EDA`
+- **Python Version:** `Python 3.12.10` (`3.12.x`)
+
+### 🔌 Activating the Virtual Environment
+
+#### Windows (PowerShell):
+```powershell
+.\EDA\Scripts\Activate.ps1
+```
+
+#### Windows (CMD):
+```cmd
+.\EDA\Scripts\activate.bat
+```
+
+#### Linux / macOS:
 ```bash
 source EDA/bin/activate
 ```
 
-Una vez activado, verás el prefijo `(EDA)` al inicio de tu línea de comandos.
-
-### 📦 Dependencias
-Para instalar las librerías necesarias del proyecto (una vez activado el entorno):
+### 📦 Installing Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
 ---
 
-## 🔀 Flujo de Trabajo: GitHub Flow Adaptado
+## 🔀 Workflow: Simplified GitHub Flow
 
-Para este proyecto adoptamos **GitHub Flow**, un modelo de ramas ágil, limpio y centrado en la revisión continua. Dado que el desarrollo lo realiza un **único autor** pero existe un **profesor revisor**, el modelo oficial *GitFlow* (con ramas `develop`, `release` y `hotfix`) generaría una sobrecarga burocrática innecesaria (*matar pulgas a cañonazos*).
+1. **Protected `main` branch:** `main` is always stable and executable; direct pushes are disabled and all changes enter via Pull Requests with green CI checks.
+2. **Short-lived feature branches:** One branch per delivery block (`feature/01-data-loading-and-cleaning`, `feature/02-essential-analysis`, etc.), created from an up-to-date `main`.
+3. **Self-review & Squash Merge:** Once CI passes and the Definition of Done checklist is complete, the author (`@levifvy`) performs a self-review, squash-merges the PR into `main`, and **deletes the merged branch** locally and remotely to keep the repository clean.
 
-### 📐 Principios de la estrategia
-
-1. **Rama `main` siempre estable:** Contiene código probado, limpio y reproducible. Nunca se trabaja directamente sobre `main`.
-2. **Ramas de etapa (Feature Branches):** Se crea una rama específica para cada hito del análisis exploratorio (ej. limpieza de datos, análisis univariado/bivariado, ingeniería de variables, informe ejecutivo).
-3. **Revisión por Pull Request (PR):** Toda integración hacia `main` se realiza mediante un Pull Request en GitHub utilizando la plantilla oficial, permitiendo al profesor revisar el avance, comentar el código y evaluar el trabajo.
-4. **⚠️ Conservación de Ramas (Regla académica):** A diferencia del GitHub Flow estándar donde las ramas se eliminan tras el merge, **en este proyecto las ramas remotas NO se eliminan tras fusionarse en `main`**. Se conservan en GitHub como evidencia histórica y trazabilidad del proceso de aprendizaje para el profesor.
-
----
-
-### 💻 Ciclo de trabajo con comandos de Git
-
-#### 1. Partir siempre de `main` actualizado
 ```bash
+# 1. Start from an up-to-date main branch
 git checkout main
 git pull origin main
-```
 
-#### 2. Crear y cambiar a la rama de la etapa correspondiente
-Nombra tus ramas con prefijos descriptivos de la fase en curso:
-```bash
-# Ejemplos de ramas por etapa:
-git checkout -b feature/01-data-cleaning
-# git checkout -b feature/02-univariate-bivariate-analysis
-# git checkout -b feature/03-feature-engineering
-# git checkout -b feature/04-visualizations-insights
-```
+# 2. Create the short-lived feature branch
+git checkout -b feature/01-data-loading-and-cleaning
 
-#### 3. Realizar cambios y commitear con mensajes claros
-```bash
-git status
+# 3. Commit incremental changes following Conventional Commits
 git add .
-git commit -m "feat(cleaning): imputar valores nulos y estandarizar formatos de fecha"
+git commit -m "feat(eda): load dataset, diagnose quality and export clean v1"
+
+# 4. Push and open Pull Request
+git push -u origin feature/01-data-loading-and-cleaning
 ```
-
-#### 4. Publicar la rama en el repositorio remoto de GitHub
-```bash
-git push -u origin feature/01-data-cleaning
-```
-
-#### 5. Abrir Pull Request en GitHub
-1. Ve a la pestaña **Pull Requests** en GitHub y haz clic en **New Pull Request**.
-2. Selecciona `base: main` $\leftarrow$ `compare: feature/01-data-cleaning`.
-3. Completa la plantilla de PR con las conclusiones y hallazgos. Tu profesor podrá consultar este registro para evaluar tu progreso.
-
-#### 6. Integración (Merge) y continuidad
-Una vez que los checks del **CI pasen en verde**, tú mismo apruebas y fusionas el Pull Request:
-* Realiza el **Merge pull request** hacia `main`.
-* **NO marques la opción de borrar la rama** ("Delete branch"), ya que debe conservarse como registro histórico para la evaluación del profesor.
-* En tu entorno local, vuelve a `main` para preparar la siguiente fase:
-  ```bash
-  git checkout main
-  git pull origin main
-  git checkout -b feature/02-univariate-bivariate-analysis
-  ```
 
 ---
 
-## 📂 Estructura del Proyecto
+## 📂 Repository Structure
 
 ```text
 ai_project_EDA_Levi_Flores/
 │
-├── .github/                      # Automatización y gestión de GitHub
-│   ├── ISSUE_TEMPLATE/           # Plantillas guiadas para tickets y tareas
-│   ├── workflows/                # Acciones automatizadas de CI (pruebas, linting, notebooks)
-│   └── pull_request_template.md  # Plantilla de entrega y revisión de Pull Requests
+├── .github/                      # GitHub automation and project governance
+│   ├── ISSUE_TEMPLATE/           # Structured YAML forms for Tasks and Daily Logs
+│   ├── workflows/ci.yml          # Automated CI pipeline (linting, notebook validation, tests)
+│   └── pull_request_template.md  # Pull Request checklist and review template
 │
-├── assets/                       # Recursos multimedia, logos y gráficos exportados
-│   └── minidatathon.PNG          # Banner/recurso visual del proyecto
+├── assets/                       # Visual assets and project banner
+│   └── minidatathon.PNG
 │
-├── docs/                         # Documentación de referencia
-│   └── Briefing.md               # Guía académica original del profesor (INALTERADA)
+├── data/                         # Dataset storage
+│   ├── raw/                      # Original immutable CSV (messy_customer_data.csv)
+│   └── processed/                # Cleaned and feature-engineered datasets
 │
-├── EDA/                          # Entorno virtual aislado de Python (ignorado en Git)
+├── docs/                         # Project documentation and planning
+│   ├── Briefing.md               # Original academic specification (untouched)
+│   ├── Work_Plan.md              # Sprint schedule, task breakdown (E1–X6) and branch plan
+│   └── project/                  # GitHub Projects v2 setup and issue backlog
+│       ├── PROJECT_SETUP.md
+│       └── ISSUE_BACKLOG.md
 │
-├── .gitignore                    # Reglas de exclusión para Git (temporales, caches, entorno)
-└── README.md                     # Documentación principal del proyecto
+├── notebooks/                    # Jupyter Notebooks for Exploratory Data Analysis
+│   └── 01_eda_customers.ipynb    # Core EDA notebook (Essential, Medium & Advanced levels)
+│
+├── EDA/                          # Local Python 3.12 virtual environment (git-ignored)
+├── .gitignore                    # Git exclusion rules
+├── requirements.txt              # Python package dependencies
+└── README.md                     # Main project documentation
 ```
