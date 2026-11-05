@@ -1,0 +1,103 @@
+name: Daily Log
+description: Record the daily progress report for the EDA project.
+title: "[DAILY] "
+labels: ["daily"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Create one daily log per working day and add it to the **Daily Log** project view.
+        The `Day` field drives the columns of that view, so select the date carefully.
+
+  - type: input
+    id: date
+    attributes:
+      label: Date
+      description: Working day in YYYY-MM-DD format.
+      placeholder: "2026-11-03"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: day
+    attributes:
+      label: Day
+      description: Must match the Day field of the Daily Log view.
+      options:
+        - Tue 03 Nov 2026
+        - Wed 04 Nov 2026
+        - Thu 05 Nov 2026
+        - Fri 06 Nov 2026
+        - Sat 07 Nov 2026
+        - Sun 08 Nov 2026
+        - Mon 09 Nov 2026
+        - Tue 10 Nov 2026
+    validations:
+      required: true
+
+  - type: textarea
+    id: yesterday
+    attributes:
+      label: Progress since the previous log
+      description: What was completed, merged or moved forward?
+      placeholder: Summarise the previous working session.
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: Plan for today
+      description: Tasks, issues and concrete outcomes planned for this day.
+      placeholder: |
+        - E1 - Load and inspect the dataset
+        - E2 - Diagnose missing values and duplicates
+    validations:
+      required: true
+
+  - type: textarea
+    id: blockers
+    attributes:
+      label: Blockers and risks
+      description: Anything preventing progress. Write "None" when there are no blockers.
+      value: "None."
+    validations:
+      required: true
+
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Decisions and notes
+      description: Methodological decisions, assumptions or findings worth remembering.
+      placeholder: Describe any decision that affects the analysis or the plan.
+    validations:
+      required: false
+
+  - type: textarea
+    id: branches-prs
+    attributes:
+      label: Branches and Pull Requests
+      description: List the branches opened or updated and the PRs pushed today.
+      placeholder: |
+        - Branch: feature/01-data-loading-and-cleaning
+        - PR: #12
+    validations:
+      required: false
+
+  - type: textarea
+    id: next
+    attributes:
+      label: Focus for the next working day
+      description: The first task to pick up next time.
+      placeholder: Describe the next step.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: admin
+    attributes:
+      label: Project administration
+      options:
+        - label: This daily log is added to the Daily Log project view and the Day field is set
+        - label: Task issues worked on today are updated in the Issues Board
+        - label: Blockers are linked to the relevant task issues

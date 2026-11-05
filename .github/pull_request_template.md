@@ -1,46 +1,59 @@
-## 📋 Registro y Revisión de Etapa del Proyecto (Para Consulta del Profesor)
+## 📋 Project Stage Log and Review
 
 ---
 
-### 🎯 1. ¿Qué se ha hecho en esta rama?
-*(Explica detalladamente las tareas, transformaciones o análisis realizados en esta fase del EDA).*
+### 🎯 1. What was done in this branch?
 
-- 
+*(Describe the tasks, transformations or analyses completed in this stage of the EDA.)*
+
+-
+-
 
 ---
 
-### 📂 2. ¿Qué archivos se han modificado o añadido?
-*(Lista los notebooks, scripts, imágenes o documentación creados o editados en este Pull Request).*
+### 📂 2. What files were added or modified?
 
 - [ ] `notebooks/...`
+- [ ] `src/...`
 - [ ] `assets/...`
-- [ ] `requirements.txt` / `README.md` / otros:
+- [ ] `docs/...`
+- [ ] `requirements.txt` / `README.md` / other:
 
 ---
 
-### 🧪 3. ¿Se ejecuta el notebook de arriba a abajo sin errores?
-*(Checklist indispensable antes de aprobar y mergear hacia main).*
+### 🧪 3. Does the notebook run top to bottom without errors?
 
-- [ ] **Ejecución secuencial limpia:** Se ha ejecutado `Kernel -> Restart & Run All` y todas las celdas corren sin excepciones ni advertencias bloqueantes.
-- [ ] **Documentación en celdas Markdown:** Cada celda de código cuenta con explicaciones del *porqué* y el *para qué* de la operación.
-- [ ] **Visualizaciones con formato:** Todos los gráficos generados incluyen títulos explicativos, nombres de ejes con unidades y leyendas comprensibles.
-- [ ] **Gestión de memoria / datos:** No se suben datasets pesados que superen los límites recomendados ni archivos temporales.
-
----
-
-### 💡 4. Conclusiones parciales e Insights encontrados
-*(Resume los principales hallazgos, patrones o anomalías detectadas en los datos durante esta etapa).*
-
-1. **Hallazgo 1:** 
-2. **Hallazgo 2:** 
-3. **Decisión metodológica:** 
+- [ ] **Clean sequential execution:** `Kernel → Restart & Run All` completed without exceptions or blocking warnings.
+- [ ] **Markdown documentation:** every code cell explains the *why* and *what* of the operation.
+- [ ] **Formatted visualisations:** all charts include descriptive titles, axis labels and understandable legends.
+- [ ] **Memory / data management:** no large datasets or temporary files are committed.
+- [ ] **CI green:** all automated checks pass.
 
 ---
 
-### ❓ 5. Dudas o preguntas para el profesor (Opcional)
-*(Apunta aquí cualquier duda conceptual, metodológica o técnica en la que requieras feedback específico).*
+### 💡 4. Preliminary conclusions and insights
 
-- 
+1. **Finding 1:**
+2. **Finding 2:**
+3. **Methodological decision:**
 
 ---
-> ⚠️ **Recordatorio:** Por motivos de trazabilidad académica, esta rama **NO debe eliminarse** tras completar el merge en `main`.
+
+### ❓ 5. Questions for the professor (optional)
+
+*(Record any conceptual, methodological or technical question that requires specific feedback.)*
+
+-
+
+---
+
+### ✅ 6. Self-review checklist
+
+- [ ] The branch name follows the convention in `docs/Work_Plan.md`.
+- [ ] The PR is linked to its issue with `Closes #<issue-number>`.
+- [ ] The project fields (`Status`, `Branch`, `Pull Request`) are up to date.
+
+---
+
+> ⚠️ **Branch policy:** after self-review and squash merge into `main`, this branch is deleted locally and
+> remotely. The Pull Request remains as the historical record.
