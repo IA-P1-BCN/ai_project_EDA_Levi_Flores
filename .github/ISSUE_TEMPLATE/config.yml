@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Documentación del Proyecto (Briefing)
+    url: https://github.com/IA-P1-BCN/ai_project_EDA_Levi_Flores/blob/main/docs/Briefing.md
+    about: Consulta las directrices, objetivos y niveles de entrega antes de abrir una issue.
