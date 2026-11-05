@@ -1,0 +1,22 @@
+# ==========================================
+# Requisitos del Proyecto EDA (Python 3.12)
+# ==========================================
+
+# Carga y manipulación de datos
+pandas>=2.2.0
+numpy>=1.26.0
+requests>=2.31.0
+openpyxl>=3.1.2
+
+# Visualización de datos
+matplotlib>=3.8.0
+seaborn>=0.13.0
+plotly>=5.20.0
+
+# Análisis estadístico
+scipy>=1.12.0
+
+# Entorno interactivo de Notebooks
+jupyter>=1.0.0
+ipykernel>=6.29.0
+nbformat>=5.9.0

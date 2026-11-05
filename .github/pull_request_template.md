@@ -1,9 +1,9 @@
-## 📋 Revisión de Etapa del Proyecto (Para el Profesor)
+## 📋 Registro y Revisión de Etapa del Proyecto (Para Consulta del Profesor)
 
 ---
 
 ### 🎯 1. ¿Qué se ha hecho en esta rama?
-*(Explica detalladamente las tareas, transformaciones o análisis realizados en esta fase del EDA. Menciona si corresponde a limpieza, análisis univariado/bivariado, ingeniería de variables o visualizaciones).*
+*(Explica detalladamente las tareas, transformaciones o análisis realizados en esta fase del EDA).*
 
 - 
 
@@ -14,12 +14,12 @@
 
 - [ ] `notebooks/...`
 - [ ] `assets/...`
-- [ ] `README.md` / otros:
+- [ ] `requirements.txt` / `README.md` / otros:
 
 ---
 
 ### 🧪 3. ¿Se ejecuta el notebook de arriba a abajo sin errores?
-*(Checklist indispensable antes de solicitar la revisión del profesor).*
+*(Checklist indispensable antes de aprobar y mergear hacia main).*
 
 - [ ] **Ejecución secuencial limpia:** Se ha ejecutado `Kernel -> Restart & Run All` y todas las celdas corren sin excepciones ni advertencias bloqueantes.
 - [ ] **Documentación en celdas Markdown:** Cada celda de código cuenta con explicaciones del *porqué* y el *para qué* de la operación.

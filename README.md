@@ -92,13 +92,12 @@ git push -u origin feature/01-data-cleaning
 #### 5. Abrir Pull Request en GitHub
 1. Ve a la pestaña **Pull Requests** en GitHub y haz clic en **New Pull Request**.
 2. Selecciona `base: main` $\leftarrow$ `compare: feature/01-data-cleaning`.
-3. Completa la plantilla de PR que se cargará automáticamente explicando los cambios y las conclusiones parciales.
-4. Notifica o solicita revisión al profesor.
+3. Completa la plantilla de PR con las conclusiones y hallazgos. Tu profesor podrá consultar este registro para evaluar tu progreso.
 
 #### 6. Integración (Merge) y continuidad
-Una vez aprobado el Pull Request:
-* Realiza el merge hacia `main`.
-* **NO marques la opción de borrar la rama** ("Delete branch").
+Una vez que los checks del **CI pasen en verde**, tú mismo apruebas y fusionas el Pull Request:
+* Realiza el **Merge pull request** hacia `main`.
+* **NO marques la opción de borrar la rama** ("Delete branch"), ya que debe conservarse como registro histórico para la evaluación del profesor.
 * En tu entorno local, vuelve a `main` para preparar la siguiente fase:
   ```bash
   git checkout main
