@@ -1,37 +1,44 @@
 ---
-name: "🐛 Reporte de Error (Bug Report)"
-about: Crea un informe detallado para ayudar a reproducir y solucionar un problema en el código o análisis.
-title: "[BUG] <descripción breve del error>"
+name: "🐛 Bug Report"
+about: Report a reproducible problem in the code, notebook or analysis.
+title: "[BUG] <short description of the error>"
 labels: ["bug"]
 assignees: ""
 ---
 
-## 📌 Descripción del Problema
-Una explicación clara y concisa de lo que ocurre.
+## 📌 Problem description
 
-## 🔁 Pasos para Reproducir
-Pasos detallados para reproducir el comportamiento inesperado:
-1. Abrir el notebook o script `...`
-2. Ejecutar la celda o comando `...`
-3. Observar el error en la línea / salida `...`
+A clear and concise explanation of what is happening.
 
-## ⚠️ Comportamiento Esperado
-Qué debería haber sucedido normalmente.
+## 🔁 Steps to reproduce
 
-## 🛑 Comportamiento Actual / Traceback
-Qué ocurrió en su lugar (incluir traceback o mensajes de consola entre bloques de código si aplica):
+1. Open the notebook or script `...`
+2. Run the cell or command `...`
+3. Observe the error on line / output `...`
+
+## ⚠️ Expected behaviour
+
+What should have happened instead.
+
+## 🛑 Actual behaviour / traceback
+
+What happened instead. Include the traceback or console output when applicable:
+
 ```text
-Traceback / mensaje de error aquí
+Traceback / error message here
 ```
 
-## 🖼️ Capturas de Pantalla / Evidencia
-Si aplica, añade capturas de pantalla para ayudar a explicar el problema.
+## 🖼️ Screenshots / evidence
 
-## 💻 Entorno de Ejecución
-- **Sistema Operativo:** Windows / Linux / macOS
-- **Versión de Python:** e.g. 3.11 / 3.12
-- **Librerías Relevantes:** e.g. pandas 2.x, seaborn 0.13.x, etc.
-- **Entorno:** PyCharm / VS Code / JupyterLab
+Add screenshots if they help explain the problem.
 
-## 📋 Contexto Adicional
-Cualquier otro contexto relevante sobre el problema.
+## 💻 Environment
+
+- **Operating system:** Windows / Linux / macOS
+- **Python version:** e.g. 3.11 / 3.12
+- **Relevant libraries:** e.g. pandas 2.x, seaborn 0.13.x
+- **Environment:** PyCharm / VS Code / JupyterLab
+
+## 📋 Additional context
+
+Any other relevant context about the problem.

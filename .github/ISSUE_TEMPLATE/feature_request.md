@@ -1,29 +1,35 @@
 ---
-name: "💡 Propuesta de Mejora (Feature / Enhancement)"
-about: Sugiere una nueva funcionalidad, análisis, visualización o mejora en el proyecto.
-title: "[FEAT] <descripción de la funcionalidad o mejora>"
+name: "💡 Feature / Enhancement Request"
+about: Suggest a new feature, analysis, visualisation or improvement for the project.
+title: "[FEAT] <description of the feature or improvement>"
 labels: ["enhancement"]
 assignees: ""
 ---
 
-## 🎯 Objetivo / Motivación
-¿Qué problema resuelve o qué valor aporta esta propuesta al proyecto o al análisis EDA?
+## 🎯 Objective / motivation
 
-## 💡 Solución Propuesta
-Describe de manera detallada la funcionalidad, transformación de datos, algoritmo o visualización que propones añadir.
+What problem does this proposal solve, and what value does it add to the project or the EDA?
 
-## 📊 Dataset / Datos Involucrados
-- **Variables / Columnas:** (e.g. `date`, `deathIncrease`, `state`)
-- **Operaciones sugeridas:** (e.g. imputación, escalado, agregaciones `groupby`, visualización bivariada)
+## 💡 Proposed solution
 
-## 🔄 Alternativas Consideradas
-¿Has considerado alguna otra alternativa o enfoque diferente? ¿Por qué se prefiere esta?
+Describe the feature, data transformation, algorithm or visualisation you want to add.
 
-## 📝 Criterios de Aceptación
-- [ ] Implementación en el notebook o módulo correspondiente.
-- [ ] Justificación metodológica documentada en markdown.
-- [ ] Visualización clara con títulos y etiquetas (si aplica).
-- [ ] Verificación de reproducibilidad sin errores.
+## 📊 Dataset / data involved
 
-## 📌 Contexto Adicional
-Cualquier otro detalle, referencia, artículo o enlace relevante.
+- **Variables / columns:** e.g. `date`, `signup_date`, `customer_segment`
+- **Suggested operations:** e.g. imputation, scaling, `groupby` aggregations, bivariate visualisation
+
+## 🔄 Alternatives considered
+
+Have you considered other approaches? Why is this one preferred?
+
+## 📝 Acceptance criteria
+
+- [ ] Implemented in the corresponding notebook or module.
+- [ ] Methodological justification documented in Markdown.
+- [ ] Clear visualisation with titles and labels (if applicable).
+- [ ] Reproducibility verified without errors.
+
+## 📌 Additional context
+
+Any other detail, reference, article or link.

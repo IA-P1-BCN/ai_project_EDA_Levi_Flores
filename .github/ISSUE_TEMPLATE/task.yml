@@ -1,0 +1,134 @@
+name: Task
+description: Create a project task aligned with docs/Work_Plan.md.
+title: "[TASK] "
+labels: ["task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for every task in the work plan. Fill in the fields exactly as they appear in
+        [`docs/Work_Plan.md`](https://github.com/IA-P1-BCN/ai_project_EDA_Levi_Flores/blob/main/docs/Work_Plan.md)
+        so the issue can be added to the **Issues Board** project view without extra editing.
+
+  - type: input
+    id: task-id
+    attributes:
+      label: Task ID
+      description: ID used in docs/Work_Plan.md (for example E1, M3, A2 or X4).
+      placeholder: E1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: level
+    attributes:
+      label: Level
+      description: Delivery level this task belongs to.
+      options:
+        - Foundation
+        - Essential
+        - Medium
+        - Advanced
+        - Expert
+    validations:
+      required: true
+
+  - type: dropdown
+    id: workstream
+    attributes:
+      label: Workstream
+      description: Main type of work involved.
+      options:
+        - Setup
+        - Data
+        - Cleaning
+        - Analysis
+        - Visualization
+        - Reporting
+        - Engineering
+        - Release
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 - Critical
+        - P1 - High
+        - P2 - Normal
+    validations:
+      required: true
+
+  - type: dropdown
+    id: estimate
+    attributes:
+      label: Estimate
+      description: Expected effort for a single collaborator.
+      options:
+        - S - Up to 2 hours
+        - M - 2 to 4 hours
+        - L - 4 to 8 hours
+    validations:
+      required: true
+
+  - type: input
+    id: target-date
+    attributes:
+      label: Target date
+      description: Planned completion date in YYYY-MM-DD format.
+      placeholder: "2026-11-05"
+    validations:
+      required: true
+
+  - type: input
+    id: branch
+    attributes:
+      label: Branch
+      description: Branch created for this task.
+      placeholder: feature/01-data-loading-and-cleaning
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What must be done and why? Link the relevant section of the work plan if useful.
+      placeholder: Describe the task, the data involved and the expected approach.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Concrete, verifiable outcomes that prove the task is complete.
+      value: |
+        - [ ] Required artefact created or updated
+        - [ ] Decisions and assumptions documented
+        - [ ] Results validated against the dataset
+    validations:
+      required: true
+
+  - type: input
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Task IDs or PRs that must be completed first. Write "None" if not applicable.
+      placeholder: "None"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: definition-of-done
+    attributes:
+      label: Definition of Done
+      description: Tick every item that applies before closing the issue.
+      options:
+        - label: The notebook or script runs top to bottom without errors
+        - label: Visualisations include titles, axis labels and legends when needed
+        - label: Cleaning and methodological decisions are justified in writing
+        - label: CI is green
+        - label: PR self-reviewed, squash-merged and branch deleted

@@ -1,5 +1,11 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
-  - name: 📖 Documentación del Proyecto (Briefing)
+  - name: Work Plan
+    url: https://github.com/IA-P1-BCN/ai_project_EDA_Levi_Flores/blob/main/docs/Work_Plan.md
+    about: Read the task breakdown, schedule and branch plan before opening an issue.
+  - name: Project Setup Guide
+    url: https://github.com/IA-P1-BCN/ai_project_EDA_Levi_Flores/blob/main/docs/project/PROJECT_SETUP.md
+    about: Check the project fields, views, columns and labels used to manage the work.
+  - name: Course Briefing
     url: https://github.com/IA-P1-BCN/ai_project_EDA_Levi_Flores/blob/main/docs/Briefing.md
-    about: Consulta las directrices, objetivos y niveles de entrega antes de abrir una issue.
+    about: Review the academic objectives and delivery levels of the project.
