@@ -72,11 +72,14 @@ def compute_iqr_outlier_summary(df: pd.DataFrame, cols: list[str]) -> pd.DataFra
 1. **Multi-Dimensional Segment Tables (`M3`):**
    Export reproducible summary tables to `data/processed/summaries/` using `groupby`, `.agg()`, and `pd.pivot_table()` with explicit `observed=True`.
 2. **Engineered Features (`M4`):**
-   Create and document at least 5 high-value features defined in [`specs/ontology.md`](../../../specs/ontology.md):
-   - `age_group` (`18-29`, `30-44`, `45-59`, `60+`, `Unknown`)
-   - `spend_tier` (`Low (<$1,200)`, `Medium ($1,200-$3,500)`, `High (>$3,500)`, `Missing`)
+   Implement in `src/features.py` the analytical features owned by `StatisticalAnalystAgent` in [`specs/ontology.md`](../../../specs/ontology.md) §3.2. **Copy labels, bins, and thresholds exactly from the ontology** — the list below is a reminder, not a second definition:
+   - `age_group` (`18-29 (Young Adult)`, `30-44 (Early Career)`, `45-59 (Mid-Senior)`, `60+ (Senior)`, `Unknown`)
+   - `spend_tier` (`Low (<$1,200)`, `Medium ($1,200-$3,500)`, `High (>$3,500)`, `Missing`) — fixed thresholds, not quantiles
    - `customer_tenure_days` (`(last_purchase_date - signup_date).dt.days` for valid chronological rows)
    - `contact_reachability_tier` (`Omnichannel (Both)`, `Email Only`, `Phone Only`, `Unreachable (None)`)
    - `feedback_tier` (`Detractor (1-2)`, `Passive (3)`, `Promoter (4-5)`, `Scale-10 Spike (10)`, `Missing`)
+   - `log_purchase_amount` (`np.log1p(purchase_amount)`)
+
+   Data-quality flags (`is_geo_mismatch`, `is_age_missing`, `feedback_score_1_to_5`, ...) belong to `DataCleanerAgent`; read them, never recreate them. To add a feature not listed in the ontology, record it in the handoff's `## Open Issues` so the Lead Orchestrator adds it to the ontology first.
 3. **Metric Normalization (`A1`):**
    Always pair raw segment revenue totals with **Revenue per 1,000 Valid Customers** and **Average Order Value (AOV)** so unevenly sized segments are compared fairly.

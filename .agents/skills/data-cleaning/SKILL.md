@@ -17,7 +17,7 @@ This skill defines the mandatory step-by-step protocol for `DataCleanerAgent` wh
 1. **Raw Data Immutability:** Never modify or overwrite `data/raw/messy_customer_data.csv`. Always load from `data/raw/` and write outputs to `data/processed/`.
 2. **Two-Pass Loading for Diagnosis:**
    - **Pass 1 (Literal String Audit):** Load with `pd.read_csv(RAW_PATH, keep_default_na=False)` to distinguish literal empty strings (`""`) from string sentinels (`"N/A"`, `"not_a_date"`, `"missing"`, `"abc123"`, `"0"`).
-   - **Pass 2 (Typed Conversion):** Apply domain sentinel masks defined in [`specs/ontology.md`](../../../specs/ontology.md) before casting to `float64`, `datetime64[ns]`, `category`, or `bool`.
+   - **Pass 2 (Typed Conversion):** Apply domain sentinel masks defined in [`specs/ontology.md`](../../../specs/ontology.md) before casting to `float64`, `datetime64[us]`, `category`, or `bool`.
 3. **Preserve Variance Over Blind Imputation:** When missingness exceeds `50%` (as in `age` at `75.35%` and `purchase_amount` at `75.34%`), **never overwrite the primary column with mean/median imputation**, as doing so collapses the standard deviation by $\sim 50\%$ and distorts bivariate correlations. Instead:
    - Keep `np.nan` in the primary analytical column (`age`, `purchase_amount`, `feedback_score`).
    - Provide explicit boolean missingness indicators (`is_age_missing`, `is_purchase_missing`) and optional suffix columns (`age_imputed_median`) only when required for specific downstream algorithms.

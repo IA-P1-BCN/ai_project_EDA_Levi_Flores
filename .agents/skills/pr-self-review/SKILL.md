@@ -14,9 +14,13 @@ This skill defines the operational runbook for `QualityReviewerAgent` and the Le
 
 ## 1. Local CI & Code Quality Gate (Exact Replication of `.github/workflows/ci.yml`)
 
-Run all five checks locally using the `EDA` virtual environment (`.\EDA\Scripts\python.exe`) before pushing any branch:
+Run all checks locally using the `EDA` virtual environment (`.\EDA\Scripts\python.exe`) before pushing any branch. First make sure the quality tools are installed (`ruff`, `flake8`, `pytest` are declared in `requirements.txt`):
+```powershell
+.\EDA\Scripts\python.exe -m pip install -r requirements.txt
+```
 
 ### Step 1: Linting with Ruff & Syntax Verification with Flake8
+**Ruff is blocking locally: 0 errors before opening a PR.** CI currently runs `ruff check . --exit-zero` (warning only), so a green CI does **not** prove Ruff is clean — the local run is the gate. Settings (line length, excludes) come from `pyproject.toml`.
 ```powershell
 .\EDA\Scripts\python.exe -m ruff check .
 .\EDA\Scripts\python.exe -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.idea,EDA,venv,.venv
