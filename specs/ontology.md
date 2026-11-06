@@ -83,7 +83,7 @@ All cleaning, auditing (`E2`, `M1`, `A3`, `X4`), and automated unit tests (`X3`)
 | `Signup_Date` | `signup_date` | `Customer` | `datetime64[us]` | Valid dates `2020-01-01` to `2025-12-31` (`DD/MM/YYYY`) | `2,529` (`25.29%`) | `'not_a_date'` (`2,475` rows) | `4,996` (`49.96%`) | Replace `'not_a_date'` and `""` with `NaT`; parse via `pd.to_datetime(..., format='%d/%m/%Y', errors='coerce')`. |
 | `Last_purchase_date` | `last_purchase_date` | `Transaction` | `datetime64[us]` | Valid dates `2020-01-01` to `2025-12-31` (`DD/MM/YYYY`) | `3,286` (`32.86%`) | `'missing'` (`3,366` rows) | `3,348` (`33.48%`) | Replace `'missing'` and `""` with `NaT`; parse via `pd.to_datetime(..., format='%d/%m/%Y', errors='coerce')`. |
 | `purchase_amount` | `purchase_amount` | `Transaction` | `float64` | `(0.0, 10000.0]` USD (observed valid: `$10.31–$4,998.67`, mean `$2,450.62`, median `$2,460.36`, SD `$1,442.83`) | `2,500` (`25.00%`) | `'N/A'` (`2,533` rows), `'-999'` (`2,501` rows) | `2,466` (`24.66%`) | Replace `'N/A'`, `'-999'`, and `""` with `np.nan`. Retain `NaN` in primary `purchase_amount` column to prevent artificial variance compression. |
-| `feedback_score` | `feedback_score` | `Interaction` | `float64` | Observed valid values: `{1, 2, 3, 4, 5, 10}` | `2,462` (`24.62%`) | `'-1'` (`2,489` rows); scale jump `'10'` (`2,521` rows vs. `2,528` rows across `1–5`) | `5,049` (`50.49%`) | Coerce `'-1'` and `""` to `np.nan`. Provide both `feedback_score` (`1–5` and `10`) and `feedback_score_1_to_5` (mapping `10 -> 5.0` or filtering `<= 5`) for robustness checks. |
+| `feedback_score` | `feedback_score` | `Interaction` | `float64` | Observed valid values: `{1, 2, 3, 4, 5, 10}` | `2,462` (`24.62%`) | `'-1'` (`2,489` rows); scale jump `'10'` (`2,521` rows vs. `2,528` rows across `1–5`) | `5,049` (`50.49%`) | Coerce `'-1'` and `""` to `np.nan`. Provide both `feedback_score` (`1–5` and `10`) and `feedback_score_1_to_5` (filtering `<= 5`; the `10` spike becomes `NaN`, see §3.2) for robustness checks. |
 | `email` | `email` | `Interaction` | `str` | `^[^@\s]+@[^@\s]+\.[^@\s]+$` (`user<N>@mail.com`) | `5,066` (`50.66%`) | `2,422` malformed strings missing `'@'` (e.g., `'user1mail.com'`) | `2,512` (`25.12%`) | Validate against RFC email regex; replace malformed strings and blanks with `np.nan`. Set `has_valid_email = email.notna()`. |
 | `Phone_number` | `phone_number` | `Interaction` | `str` | `^\d{10}$` (10-digit mobile number starting with `9`) | `2,444` (`24.44%`) | `'abc123'` (`2,586` rows), `'0'` (`2,460` rows) | `2,510` (`25.10%`) | Validate against `^\d{10}$`; replace `'abc123'`, `'0'`, and blanks with `np.nan`. Set `has_valid_phone = phone_number.notna()`. |
 | `Country` | `country` | `Demographics` | `category` | `{'USA', 'Australia', 'Canada', 'UK', 'India', 'Unknown'}` | `1,704` (`17.04%`) | Geographic mismatch with Indian `city` values (`6,655` rows) | `8,296` (`82.96%`) | Standardize string and impute blanks as `'Unknown'`. Track mismatch via `is_geo_mismatch`. |
@@ -92,21 +92,29 @@ All cleaning, auditing (`E2`, `M1`, `A3`, `X4`), and automated unit tests (`X3`)
 
 ### 3.2 Engineered & Enriched Feature Catalog (`M4`, `A1`, `A2`, `A3`, `A4`)
 
-To support Medium (`M1–M7`) and Advanced (`A1–A7`) analytical milestones, `StatisticalAnalystAgent` and `DataCleanerAgent` generate the following standardized features:
+To support Medium (`M1–M7`) and Advanced (`A1–A7`) analytical milestones, the following standardized features are generated. This table is the **single source of truth** for feature names, labels, and ownership: `AGENTS.md` and every skill must use these exact names and labels. A new feature is added here first, then implemented.
 
-| Feature Name | Source Columns | Dtype | Formula / Logic | Analytical Purpose |
-|---|---|---|---|---|
-| `has_valid_email` | `email` | `bool` | `email.notna()` | Quantifies email marketing reachability (`25.12%`). |
-| `has_valid_phone` | `phone_number` | `bool` | `phone_number.notna()` | Quantifies SMS/telemarketing reachability (`25.10%`). |
-| `contact_reachability_tier` | `has_valid_email`, `has_valid_phone` | `category` | `'Omnichannel (Both)'`, `'Email Only'`, `'Phone Only'`, `'Unreachable (None)'` | Segments customers by operational campaign reachability (`Q3`). |
-| `is_date_inverted` | `signup_date`, `last_purchase_date` | `bool` | `last_purchase_date < signup_date` (`True` for `829` rows) | Flags corrupted chronological records before computing tenure (`E2`, `A3`). |
-| `customer_tenure_days` | `signup_date`, `last_purchase_date` | `float64` | `(last_purchase_date - signup_date).dt.days` where `~is_date_inverted` (`else np.nan`) | Measures active lifecycle duration in days for valid chronological cohorts (`M4`, `M6`). |
-| `age_group` | `age` | `category` | `pd.cut(age, bins=[17, 29, 44, 59, 100], labels=['18-29 (Young Adult)', '30-44 (Early Career)', '45-59 (Mid-Senior)', '60+ (Senior)'])` | Enables demographic cohort aggregation and bivariate spend comparison (`E5`, `M3`, `M4`). |
-| `spend_tier` | `purchase_amount` | `category` | Tertile/quartile segmentation: `'Low (<$1,200)'`, `'Medium ($1,200-$3,500)'`, `'High (>$3,500)'` | Identifies high-value VIP customer concentration (`Q2`, `M4`). |
-| `feedback_tier` | `feedback_score` | `category` | `1-2`: `'Detractor (1-2)'`, `3`: `'Passive (3)'`, `4-5`: `'Promoter (4-5)'`, `10`: `'Scale-10 Spike (10)'` | Separates standard Likert ratings (`1–5`) from the `10` rating anomaly (`M4`, `A3`). |
-| `is_geo_mismatch` | `city`, `country` | `bool` | `(city != 'Unknown') & (country.isin(['USA', 'UK', 'Canada', 'Australia']))` | Audits cross-column geographic contradiction where Indian cities are paired with non-Indian countries (`A3`). |
-| `log_purchase_amount` | `purchase_amount` | `float64` | `np.log1p(purchase_amount)` | Stabilizes right-skewed or wide-range monetary scale for parametric modeling (`A4`). |
-| `completeness_score` | All 12 raw columns | `float64` | Row-wise proportion of valid (non-null, non-sentinel) attributes (`0.0` to `1.0`) | Quantifies record-level data quality for `reports/data_quality_report.md` (`X4`). |
+**Ownership rule:** `DataCleanerAgent` owns **data-quality flags** (implemented in `src/cleaning.py`, shipped in `customers_clean_*.csv`). `StatisticalAnalystAgent` owns **analytical features** (implemented in `src/features.py`, shipped in `customers_enriched_*.csv`).
+
+**Label rule:** Every categorical feature is an ordered `category` with an explicit catch-all label for missing source values (`'Unknown'` or `'Missing'`), so `groupby(..., observed=True)` never silently drops rows.
+
+| Feature Name | Owner | Source Columns | Dtype | Formula / Logic | Analytical Purpose |
+|---|---|---|---|---|---|
+| `has_valid_email` | `DataCleanerAgent` | `email` | `bool` | `email.notna()` | Quantifies email marketing reachability (`25.12%`). |
+| `has_valid_phone` | `DataCleanerAgent` | `phone_number` | `bool` | `phone_number.notna()` | Quantifies SMS/telemarketing reachability (`25.10%`). |
+| `is_date_inverted` | `DataCleanerAgent` | `signup_date`, `last_purchase_date` | `bool` | `last_purchase_date < signup_date` (`True` for `829` rows) | Flags corrupted chronological records before computing tenure (`E2`, `A3`). |
+| `is_geo_mismatch` | `DataCleanerAgent` | `city`, `country` | `bool` | `(city != 'Unknown') & (country.isin(['USA', 'UK', 'Canada', 'Australia']))` | Audits cross-column geographic contradiction where Indian cities are paired with non-Indian countries (`A3`). |
+| `is_age_missing` | `DataCleanerAgent` | `age` | `bool` | `age.isna()` (blank or sentinel) | Missingness indicator; lets analyses compare known vs. unknown age cohorts without imputing (`M1`). |
+| `is_purchase_missing` | `DataCleanerAgent` | `purchase_amount` | `bool` | `purchase_amount.isna()` (blank or sentinel) | Missingness indicator for spend (`M1`). |
+| `is_score_10_spike` | `DataCleanerAgent` | `feedback_score` | `bool` | `feedback_score == 10` | Isolates the off-scale `10` rating anomaly (`A3`). |
+| `feedback_score_1_to_5` | `DataCleanerAgent` | `feedback_score` | `float64` | `feedback_score.where(feedback_score <= 5)` — the `10` spike becomes `NaN` (**not** remapped to `5`, which would inflate Promoters by `2,521` rows) | Clean Likert-scale rating for satisfaction statistics (`Q3`). |
+| `completeness_score` | `DataCleanerAgent` | All 12 raw columns | `float64` | Row-wise proportion of valid (non-null, non-sentinel) attributes (`0.0` to `1.0`) | Quantifies record-level data quality for `reports/data_quality_report.md` (`X4`). |
+| `age_group` | `StatisticalAnalystAgent` | `age` | ordered `category` | `pd.cut(age, bins=[17, 29, 44, 59, 100], labels=['18-29 (Young Adult)', '30-44 (Early Career)', '45-59 (Mid-Senior)', '60+ (Senior)'])`, then missing `age` → `'Unknown'` (last category) | Enables demographic cohort aggregation and bivariate spend comparison (`E5`, `M3`, `M4`). |
+| `spend_tier` | `StatisticalAnalystAgent` | `purchase_amount` | ordered `category` | Fixed business thresholds (not quantiles): `< 1200` → `'Low (<$1,200)'`; `1200 <= x <= 3500` → `'Medium ($1,200-$3,500)'`; `> 3500` → `'High (>$3,500)'`; missing → `'Missing'` | Identifies high-value VIP customer concentration (`Q2`, `M4`). |
+| `feedback_tier` | `StatisticalAnalystAgent` | `feedback_score` | ordered `category` | `1-2` → `'Detractor (1-2)'`; `3` → `'Passive (3)'`; `4-5` → `'Promoter (4-5)'`; `10` → `'Scale-10 Spike (10)'`; missing → `'Missing'` | Separates standard Likert ratings (`1–5`) from the `10` rating anomaly (`M4`, `A3`). |
+| `contact_reachability_tier` | `StatisticalAnalystAgent` | `has_valid_email`, `has_valid_phone` | ordered `category` | `'Omnichannel (Both)'`, `'Email Only'`, `'Phone Only'`, `'Unreachable (None)'` | Segments customers by operational campaign reachability (`Q3`). |
+| `customer_tenure_days` | `StatisticalAnalystAgent` | `signup_date`, `last_purchase_date` | `float64` | `(last_purchase_date - signup_date).dt.days` where `~is_date_inverted` (`else np.nan`) | Measures active lifecycle duration in days for valid chronological cohorts (`M4`, `M6`). |
+| `log_purchase_amount` | `StatisticalAnalystAgent` | `purchase_amount` | `float64` | `np.log1p(purchase_amount)` | Stabilizes right-skewed or wide-range monetary scale for parametric modeling (`A4`). |
 
 ---
 

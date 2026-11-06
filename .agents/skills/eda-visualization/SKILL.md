@@ -3,7 +3,7 @@ name: eda-visualization
 description: >-
   Design, format, annotate, and export publication-grade static (matplotlib/seaborn) and interactive
   (plotly) visualizations to assets/charts/. Activate this skill when executing tasks E4, E5, M2,
-  M5, M6, A4, A5, A6, X2, or X5.
+  M5, M6, A4, A5, A6, or X2, and when ExecutiveReporterAgent needs supporting charts for X5.
 ---
 
 # Scientific & Executive Visualization Skill (`eda-visualization`)
@@ -90,20 +90,25 @@ Every chart must include **five mandatory structural elements**:
 
 Every figure generated in code or notebooks must be saved deterministically to `assets/charts/` using the task ID prefix:
 
+This helper lives in `src/visualization.py`. The path is anchored to the repository root, so it works the same from `notebooks/`, `src/pipeline.py`, `pytest`, or `streamlit run app/dashboard.py` (a `".."`-relative path only works from `notebooks/`):
+
 ```python
-import os
+from pathlib import Path
 
-CHARTS_DIR = os.path.join("..", "assets", "charts")
-os.makedirs(CHARTS_DIR, exist_ok=True)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+CHARTS_DIR = REPO_ROOT / "assets" / "charts"
 
-def save_publication_figure(fig, task_id: str, slug: str) -> str:
-    """Save figure at 300 DPI with tight bounding box and return path."""
-    filename = f"{task_id.lower()}_{slug}.png"
-    out_path = os.path.join(CHARTS_DIR, filename)
+
+def save_publication_figure(fig, task_id: str, slug: str) -> Path:
+    """Save figure at 300 DPI with tight bounding box and return its path."""
+    CHARTS_DIR.mkdir(parents=True, exist_ok=True)  # empty dirs are not tracked by Git
+    out_path = CHARTS_DIR / f"{task_id.lower()}_{slug}.png"
     fig.savefig(out_path, dpi=300, bbox_inches="tight", facecolor="white")
-    print(f"Saved figure: {out_path}")
+    print(f"Saved figure: {out_path.relative_to(REPO_ROOT)}")
     return out_path
 ```
+
+The notebook imports it (`from src.visualization import save_publication_figure`) instead of redefining it.
 
 ---
 
@@ -114,4 +119,5 @@ def save_publication_figure(fig, task_id: str, slug: str) -> str:
 - [ ] Do both axes have human-readable labels (no raw `snake_case` variable names) and explicit units?
 - [ ] Are `'Unknown'` / missing categories visually distinguished in muted grey (`#7F8C8D`)?
 - [ ] Is the PNG exported to `assets/charts/<task_id>_<slug>.png` at `300 DPI` without clipped labels?
-- [ ] Is the chart followed immediately by a Markdown interpretation cell explaining *what* is observed and *how* it answers `Q1`, `Q2`, or `Q3`?
+- [ ] Does `handoffs/<task_id>_data-viz.md` contain, under `## Notebook Cells`, each chart's code cell followed immediately by a Markdown interpretation cell explaining *what* is observed and *how* it answers `Q1`, `Q2`, or `Q3`? (`DataVizAgent` never edits the notebook; the Lead Orchestrator pastes these cells — see `AGENTS.md` Law 2.)
+- [ ] Is the finding in the title backed by a number from the `StatisticalAnalystAgent` handoff or summary table for the same Task ID (`AGENTS.md` Law 2b)?

@@ -44,3 +44,6 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Claude Code per-user settings (shared config in .claude/agents and .claude/skills is tracked)
+.claude/settings.local.json

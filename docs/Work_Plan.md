@@ -135,7 +135,7 @@ Tasks are sequential. Each task ends with at least one commit in its branch and 
 3. One branch = one level or feature = one PR.
 4. The author self-reviews, approves and squash-merges the PR once CI is green.
 5. Delete the branch after merging (local and remote).
-6. **Do not open the next branch until the current PR is merged.**
+6. **Do not push or open a PR for the next branch until the current PR is merged.** Preparing the next block early is allowed only in a local `git worktree` (see `AGENTS.md` Law 4.3).
 
 ### Branches and order of creation
 
@@ -162,8 +162,9 @@ git pull origin main
 # 2. Create the branch for the current block
 git checkout -b feature/02-essential-analysis
 
-# 3. Work in small, clear commits
-git add .
+# 3. Work in small, clear commits (check what changed, then stage explicit paths)
+git status
+git add notebooks/01_eda_customers.ipynb src/ assets/charts/ handoffs/
 git commit -m "feat(analysis): add univariate and bivariate charts"
 
 # 4. Publish and open the PR
