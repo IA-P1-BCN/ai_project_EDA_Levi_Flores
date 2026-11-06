@@ -91,18 +91,18 @@ Built-in fields used in the views: `Title`, `Assignees`, `Labels`, `Milestone` a
 
 ## 4. Project views
 
-The project has **two views**, each with its own columns.
+The project has **four views** — two dedicated to development tasks (`Issues Board` and `Issues Table`) and two dedicated to daily tracking (`Daily Log Board` and `Daily Log Table`).
 
-### View 1 — `Issues Board`
+### View 1 — `Issues Board` (Kanban Board for Tasks)
 
 | Setting | Value |
 |---|---|
-| Layout | Board |
+| Layout | Board (`BOARD_LAYOUT`) |
 | Filter | `is:issue -label:daily` |
 | Group by | `Status` |
 | Columns | `Backlog` → `Ready` → `In Progress` → `Blocked` → `In Review` → `Done` |
 | Sort | `Priority` (P0 first), then `Target date` (oldest first) |
-| Card fields | `Task ID`, `Level`, `Target date`, `Branch`, `Pull Request`, `Assignees` |
+| Card fields | `Title`, `Status`, `Task ID`, `Level`, `Priority`, `Estimate`, `Target date`, `Branch`, `Pull Request`, `Assignees`, `Milestone`, `Labels` |
 | WIP limits | `Ready`: 3, `In Progress`: 1, `In Review`: 1 |
 
 **Column meaning**
@@ -116,20 +116,41 @@ The project has **two views**, each with its own columns.
 | `In Review` | Self-review and CI checks in progress. |
 | `Done` | PR squash-merged, issue closed and branch deleted. |
 
-### View 2 — `Daily Log`
+### View 2 — `Issues Table` (Structured Backlog Table for Tasks)
 
 | Setting | Value |
 |---|---|
-| Layout | Board |
+| Layout | Table (`TABLE_LAYOUT`) |
+| Filter | `is:issue -label:daily` |
+| Group by | `Level` (`Foundation` → `Essential` → `Medium` → `Advanced` → `Expert`) |
+| Sort | `Target date` (oldest first), then `Priority` (P0 first) |
+| Visible columns | `Title`, `Task ID`, `Status`, `Level`, `Workstream`, `Priority`, `Estimate`, `Day`, `Branch`, `Pull Request`, `Start date`, `Target date`, `Milestone`, `Assignees`, `Labels` |
+
+**Purpose:** provides a full spreadsheet-style overview of all 29 task issues (`F1–F3`, `E1–E6`, `M1–M7`, `A1–A7`, `X1–X6`) to audit metadata, branches, PR links, dates and estimates at a glance.
+
+### View 3 — `Daily Log Board` (Sprint Calendar Board for Dailys)
+
+| Setting | Value |
+|---|---|
+| Layout | Board (`BOARD_LAYOUT`) |
 | Filter | `label:daily` |
 | Group by | `Day` |
 | Columns | `Tue 03 Nov 2026` → `Wed 04 Nov 2026` → `Thu 05 Nov 2026` → `Fri 06 Nov 2026` → `Sat 07 Nov 2026` → `Sun 08 Nov 2026` → `Mon 09 Nov 2026` → `Tue 10 Nov 2026` |
 | Sort | `Target date` (oldest first) |
-| Card fields | `Task ID`, `Target date`, `Assignees` |
+| Card fields | `Title`, `Day`, `Task ID`, `Status`, `Workstream`, `Start date`, `Target date`, `Assignees`, `Labels` |
 
-**Column meaning:** each column is one working day of the sprint. The card in a column is the daily log
-issue for that date. Daily logs record what was done, what is planned, blockers and decisions; they are not
-development tasks and therefore do not need a branch.
+**Column meaning:** each column is one working day of the sprint (`D1` to `D8`). The card in a column is the daily log issue for that date. Daily logs record what was done, what is planned, blockers and decisions; they are not development tasks and therefore do not need a branch.
+
+### View 4 — `Daily Log Table` (Chronological Table for Dailys)
+
+| Setting | Value |
+|---|---|
+| Layout | Table (`TABLE_LAYOUT`) |
+| Filter | `label:daily` |
+| Sort | `Target date` (oldest first: `2026-11-03` → `2026-11-10`) |
+| Visible columns | `Title`, `Task ID`, `Day`, `Status`, `Workstream`, `Estimate`, `Start date`, `Target date`, `Assignees`, `Labels` |
+
+**Purpose:** provides a chronological log table of all 8 working days (`D1–D8`) for quick auditing of sprint progress and completion status.
 
 ---
 
@@ -154,13 +175,13 @@ Status changes during the day are manual so the board reflects reality (one task
 2. Create the five milestones from section 2.
 3. Create the project `EDA Project — Customer Messy Data` using the Board template.
 4. Add the custom fields from section 3, keeping the option order.
-5. Create the `Issues Board` view and configure filter, grouping, columns, sort and WIP limits.
-6. Create the `Daily Log` view and configure the eight date columns.
+5. Configure **View 1 (`Issues Board`)** and **View 2 (`Issues Table`)** filtered by `is:issue -label:daily`.
+6. Configure **View 3 (`Daily Log Board`)** and **View 4 (`Daily Log Table`)** filtered by `label:daily`.
 7. Create the task issues from [`ISSUE_BACKLOG.md`](ISSUE_BACKLOG.md) using the **Task** template.
 8. Add each issue to the project and fill `Level`, `Day`, `Workstream`, `Priority`, `Estimate`, `Task ID`,
    `Branch`, `Start date` and `Target date`.
 9. Enable the workflows from section 5.
-10. Create the first daily log with the **Daily Log** template and place it in the corresponding date column.
+10. Create the daily logs (`D1–D8`) with the **Daily Log** template and place each one in its date column.
 
 ---
 
