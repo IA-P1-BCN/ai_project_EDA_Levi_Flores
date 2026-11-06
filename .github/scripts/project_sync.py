@@ -255,7 +255,8 @@ def main() -> int:
     sub.add_parser("daily", parents=[common], help="roll daily logs over")
     args = parser.parse_args()
 
-    token = os.environ.get("PROJECT_TOKEN", "")
+    # Strip whitespace: secrets pasted in the web UI often carry a trailing newline.
+    token = os.environ.get("PROJECT_TOKEN", "").strip()
     if not token:
         print("::warning::PROJECT_TOKEN is not set; project sync skipped. See README > Project automation.")
         return 0
