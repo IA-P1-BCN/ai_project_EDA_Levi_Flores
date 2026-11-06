@@ -1,0 +1,35 @@
+name: PR Governance
+
+# Separate from ci.yml so that editing a PR title or description re-runs only this cheap check.
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-metadata:
+    name: PR title, branch and issue link
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # PR text is passed through env vars, never interpolated into the script, to avoid injection.
+      - name: Check Conventional Commits title, branch name and closing keyword
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BRANCH: ${{ github.head_ref }}
+        run: python .github/scripts/check_pr_metadata.py
