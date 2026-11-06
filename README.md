@@ -63,6 +63,12 @@ source EDA/bin/activate
 pip install -r requirements.txt
 ```
 
+### 🪝 Enabling the GitHub Flow Git Hooks (once per clone)
+```bash
+git config core.hooksPath .githooks
+```
+The hooks in `.githooks/` block, before anything reaches GitHub: commits on `main`, pushes to `main`, deleting remote branches (they are the professor's audit trail), and force-pushes. They are a local safety net for both the author and the AI agents.
+
 ---
 
 ## 🔀 Workflow: Simplified GitHub Flow

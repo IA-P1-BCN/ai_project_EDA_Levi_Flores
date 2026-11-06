@@ -1,0 +1,41 @@
+#!/bin/sh
+# GitHub Flow guard. Blocks, before anything reaches GitHub:
+#   1. pushing to main (main only changes through a squash-merged Pull Request);
+#   2. deleting any remote branch (remote branches are the professor's audit trail);
+#   3. force-pushing / rewriting history of a remote branch.
+# Enable once per clone:  git config core.hooksPath .githooks
+
+zero=0000000000000000000000000000000000000000
+status=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  branch=${remote_ref#refs/heads/}
+
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "BLOCKED: pushing to 'main' is not allowed (GitHub Flow)."
+    echo "  Push your branch and open a Pull Request:  git push -u origin <branch>"
+    status=1
+    continue
+  fi
+
+  if [ "$local_sha" = "$zero" ]; then
+    echo "BLOCKED: deleting remote branch '$branch' is not allowed."
+    echo "  Remote branches are kept so the professor can audit the project history."
+    status=1
+    continue
+  fi
+
+  if [ "$remote_sha" != "$zero" ]; then
+    if ! git cat-file -e "$remote_sha" 2>/dev/null; then
+      echo "BLOCKED: '$branch' on GitHub has commits you do not have locally."
+      echo "  Run 'git pull' first; never overwrite remote history."
+      status=1
+    elif ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+      echo "BLOCKED: this push would rewrite the history of '$branch' (force-push)."
+      echo "  Never run 'git push --force' (AGENTS.md 5.2)."
+      status=1
+    fi
+  fi
+done
+
+exit $status

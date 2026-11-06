@@ -1,0 +1,11 @@
+#!/bin/sh
+# GitHub Flow guard: never commit directly on main.
+# Enable once per clone:  git config core.hooksPath .githooks
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+if [ "$branch" = "main" ]; then
+  echo "BLOCKED: direct commits on 'main' are not allowed (GitHub Flow)."
+  echo "Create a branch first:  git switch -c feature/<name>"
+  exit 1
+fi
+exit 0
