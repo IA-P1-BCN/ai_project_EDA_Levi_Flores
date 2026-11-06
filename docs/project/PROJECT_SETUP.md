@@ -114,7 +114,7 @@ The project has **four views** — two dedicated to development tasks (`Issues B
 | `In Progress` | Branch open and work actively underway (maximum one task). |
 | `Blocked` | Cannot continue; the blocker must be described in the issue. |
 | `In Review` | Self-review and CI checks in progress. |
-| `Done` | PR squash-merged, issue closed and branch deleted. |
+| `Done` | PR squash-merged and issue closed (remote branch kept for audit). |
 
 ### View 2 — `Issues Table` (Structured Backlog Table for Tasks)
 
@@ -212,7 +212,7 @@ Status changes during the day are manual so the board reflects reality (one task
 - **Issue title:** `[ID] Short description` for tasks and `[DAILY] YYYY-MM-DD` for daily logs.
 - **One task, one branch, one PR:** use the branch names defined in `docs/Work_Plan.md`.
 - **PR linkage:** include `Closes #<issue-number>` in the PR description so the merge closes the issue.
-- **Merge policy:** the author self-reviews and squash-merges; the branch is deleted afterwards.
+- **Merge policy:** the author self-reviews and squash-merges; the local branch is deleted afterwards and the remote branch is kept for audit.
 - **Project hygiene:** no task stays in `In Progress` without an open branch and an owner.
 
 ---

@@ -19,9 +19,9 @@
 
 1. **Language:** all repository artifacts are written in **English** — code, comments, notebooks, Markdown, chart titles and labels, commit messages, PR titles and descriptions. Spanish is used only for direct conversation when needed.
 2. **`main` is protected:** no direct pushes. Every change arrives through a Pull Request with green CI.
-3. **Single approver:** the author performs the self-review and merges the PR. Branch protection requires status checks and linear history, not external approvals.
+3. **Single approver:** the author performs the self-review and merges the PR. Branch protection is not available for private repositories on GitHub Free, so the rules are enforced by repository settings (squash merge only) and the `Main Guard` workflow.
 4. **Short-lived branches:** one branch per level or feature, maximum 1–2 days.
-5. **Squash merge + branch deletion:** one clean commit per PR in `main`; the merged branch is deleted locally and remotely.
+5. **Squash merge + remote branch retention:** one clean commit per PR in `main`; the merged branch is deleted locally but **kept on GitHub** as the audit trail for the professor.
 
 > The current `README.md` still describes the old rule of keeping branches. It will be updated in `feature/01-data-loading-and-cleaning` to match this plan.
 
@@ -134,7 +134,7 @@ Tasks are sequential. Each task ends with at least one commit in its branch and 
 2. Create each branch from an up-to-date `main`.
 3. One branch = one level or feature = one PR.
 4. The author self-reviews, approves and squash-merges the PR once CI is green.
-5. Delete the branch after merging (local and remote).
+5. After merging, delete the local branch only; never delete remote branches (audit trail).
 6. **Do not push or open a PR for the next branch until the current PR is merged.** Preparing the next block early is allowed only in a local `git worktree` (see `AGENTS.md` Law 4.3).
 
 ### Branches and order of creation
@@ -174,12 +174,12 @@ git push -u origin feature/02-essential-analysis
 5. Open the PR against `main`, assign it to yourself and fill in the repository template.
 6. Complete the self-review checklist and confirm CI is green.
 7. **Squash and merge** the PR.
-8. **Delete the branch** on GitHub and locally, then update `main`:
+8. **Delete the local branch** (keep the remote one for the audit trail), then update `main`:
 
 ```bash
 git checkout main
 git pull origin main
-git branch -d feature/02-essential-analysis
+git branch -D feature/02-essential-analysis   # local only; -D because squash merges are not ancestors of main
 ```
 
 ### Definition of Done
@@ -190,4 +190,4 @@ git branch -d feature/02-essential-analysis
 - [ ] PR description includes the work done, files changed and preliminary findings.
 - [ ] CI is green.
 - [ ] The author has completed the self-review and squash-merged the PR.
-- [ ] The branch has been deleted and local `main` is up to date.
+- [ ] The local branch has been deleted (remote branch kept) and local `main` is up to date.

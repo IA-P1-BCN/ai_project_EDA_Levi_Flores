@@ -55,5 +55,5 @@
 
 ---
 
-> ⚠️ **Branch policy:** after self-review and squash merge into `main`, this branch is deleted locally and
-> remotely. The Pull Request remains as the historical record.
+> ⚠️ **Branch policy:** after self-review and squash merge into `main`, this branch is deleted locally only.
+> The remote branch and the Pull Request remain as the historical record for the professor.

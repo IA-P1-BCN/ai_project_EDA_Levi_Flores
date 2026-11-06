@@ -64,15 +64,16 @@ Before opening a Pull Request, verify compliance against [`docs/Briefing.md`](..
    gh project item-edit 54 --owner IA-P1-BCN --url https://github.com/IA-P1-BCN/ai_project_EDA_Levi_Flores/issues/<N> --field "Pull Request" --text "<PR_URL>"
    ```
 
-### 3.2 Self-Review, Squash-Merge & Branch Deletion (`@levifvy`)
+### 3.2 Self-Review, Squash-Merge & Local Branch Cleanup (`@levifvy`)
 1. Confirm every GitHub Actions check (`lint`, `notebooks`, `tests`, `data-contract`, `repo-hygiene`, `pr-metadata`) is **green**:
    ```powershell
    gh pr checks <PR_NUMBER> --repo IA-P1-BCN/ai_project_EDA_Levi_Flores
    ```
-2. Perform self-review and squash-merge into `main`, deleting the remote and local branch:
+2. Perform self-review and squash-merge into `main`. **Never pass `--delete-branch` and never delete remote branches**: the professor audits them. Delete only the local branch:
    ```powershell
-   gh pr merge <PR_NUMBER> --repo IA-P1-BCN/ai_project_EDA_Levi_Flores --squash --delete-branch
+   gh pr merge <PR_NUMBER> --repo IA-P1-BCN/ai_project_EDA_Levi_Flores --squash
    git checkout main
    git pull origin main
+   git branch -D <branch-name>   # local only; -D because squash merges are not ancestors of main
    ```
 3. Verify that all linked task issues are `CLOSED` and marked `Done` in **Project `#54`**, and update the active `[DAILY]` log issue.

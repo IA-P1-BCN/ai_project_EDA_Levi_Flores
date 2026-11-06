@@ -1,0 +1,64 @@
+name: Main Guard (GitHub Flow)
+
+# Branch protection is not available for private repositories on the free plan, so this workflow
+# detects (it cannot block) changes to main that bypass GitHub Flow. It turns red when a commit
+# pushed to main does not come from a merged Pull Request, or was not squash-merged.
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify-main-history:
+    name: Every commit on main comes from a squash-merged PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check pushed commits
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          FORCED: ${{ github.event.forced }}
+        shell: bash
+        run: |
+          failed=0
+          if [ "$FORCED" = "true" ]; then
+            echo "::error::main was force-pushed (history rewritten). Never run 'git push --force' (AGENTS.md 5.2)."
+            failed=1
+          fi
+
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            commits="$AFTER"
+          else
+            commits=$(git rev-list "$BEFORE..$AFTER")
+          fi
+
+          for sha in $commits; do
+            short=${sha:0:7}
+            parents=$(git rev-list --parents -n 1 "$sha" | wc -w)
+            pr=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/pulls" \
+                  --jq '[.[] | select(.merged_at != null and .base.ref == "main")][0].number // empty')
+            if [ -z "$pr" ]; then
+              echo "::error::Commit ${short} reached main without a merged Pull Request (direct push)."
+              failed=1
+            elif [ "$parents" -gt 2 ]; then
+              echo "::error::Commit ${short} (PR #${pr}) is a merge commit; main must only receive squash merges."
+              failed=1
+            else
+              echo "OK ${short} <- squash-merged PR #${pr}"
+            fi
+          done
+
+          if [ "$failed" -ne 0 ]; then
+            echo "main received changes outside GitHub Flow. See the errors above."
+            exit 1
+          fi
