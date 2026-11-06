@@ -214,3 +214,26 @@ Status changes during the day are manual so the board reflects reality (one task
 - **PR linkage:** include `Closes #<issue-number>` in the PR description so the merge closes the issue.
 - **Merge policy:** the author self-reviews and squash-merges; the branch is deleted afterwards.
 - **Project hygiene:** no task stays in `In Progress` without an open branch and an owner.
+
+---
+
+## 9. Issue Presentation & Badge Standards
+
+Every issue in the project features a standardized **Metadata Card** utilizing Shields.io badges. This guarantees high readability, consistent visual hierarchy and instant identification of task level, priority and workstream.
+
+### Metadata Card Format
+```markdown
+### 🏷️ Metadata & Planning
+
+| Attribute | Details |
+| :--- | :--- |
+| **Task ID** | `E5` |
+| **Level** | ![Level: Essential](https://img.shields.io/badge/Level-Essential-0E8A16?style=flat-square) |
+| **Workstream** | ![Workstream: Analysis](https://img.shields.io/badge/Workstream-Analysis-006B75?style=flat-square) |
+| **Priority** | ![Priority: P0 - Critical](https://img.shields.io/badge/Priority-P0--Critical-red?style=flat-square) |
+| **Estimate** | ![Estimate: M](https://img.shields.io/badge/Estimate-M_(2--4h)-5319E7?style=flat-square) |
+| **Target Date** | ![Target Date: 2026-11-06](https://img.shields.io/badge/Target_Date-2026--11--06-blue?style=flat-square) |
+| **Branch** | [`feature/02-essential-analysis`](https://github.com/IA-P1-BCN/ai_project_EDA_Levi_Flores/tree/feature/02-essential-analysis) |
+| **Dependencies** | `E4` |
+```
+
