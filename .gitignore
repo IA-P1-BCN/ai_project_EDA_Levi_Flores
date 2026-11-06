@@ -1,4 +1,4 @@
-# Entornos virtuales
+# Virtual environments
 EDA/
 venv/
 .venv/
@@ -7,23 +7,23 @@ ENV/
 env.bak/
 venv.bak/
 
-# Variables de entorno y credenciales
+# Environment variables and credentials
 .env
 .env.*
 *.env
 
-# Archivos temporales de Jupyter Notebooks
+# Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 */.ipynb_checkpoints/*
 
-# IDEs y editores de código
+# IDEs and code editors
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
 
-# Archivos del sistema operativo (macOS y Windows)
+# Operating system files (macOS and Windows)
 .DS_Store
 .DS_Store?
 ._*
@@ -33,13 +33,13 @@ ehthumbs.db
 Thumbs.db
 [Dd]esktop.ini
 
-# Bytecode y caches de Python
+# Python bytecode and caches
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 
-# Caches de pruebas y linters
+# Test and linter caches
 .pytest_cache/
 .ruff_cache/
 .coverage

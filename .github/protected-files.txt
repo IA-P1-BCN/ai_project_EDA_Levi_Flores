@@ -1,0 +1,4 @@
+# Files that must never change (AGENTS.md section 5.1).
+# Format: <git blob SHA-1>  <path>. Regenerate a line with: git hash-object <path>
+e8ebb59622262bb782180de2ce7f7f1881d9b1d1  data/raw/messy_customer_data.csv
+1cf688794c241b5c16697addedf3a83b23173c50  docs/Briefing.md

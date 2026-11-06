@@ -12,54 +12,26 @@ This skill defines the operational runbook for `QualityReviewerAgent` and the Le
 
 ---
 
-## 1. Local CI & Code Quality Gate (Exact Replication of `.github/workflows/ci.yml`)
+## 1. Local CI & Code Quality Gate (Same Checks as `.github/workflows/ci.yml`)
 
-Run all checks locally using the `EDA` virtual environment (`.\EDA\Scripts\python.exe`) before pushing any branch. First make sure the quality tools are installed (`ruff`, `flake8`, `pytest` are declared in `requirements.txt`):
+All check logic lives in `.github/scripts/`, so CI and the local gate run the **same code**. Run it with the `EDA` virtual environment (`.\EDA\Scripts\python.exe`) before pushing any branch:
 ```powershell
 .\EDA\Scripts\python.exe -m pip install -r requirements.txt
+.\EDA\Scripts\python.exe .github/scripts/run_local_ci.py          # full gate (~1 min)
+.\EDA\Scripts\python.exe .github/scripts/run_local_ci.py --fast   # skip notebook re-execution
 ```
+Every step is **blocking** in CI. Ruff is pinned in `requirements.txt` so local and CI apply the same rule set; settings come from `pyproject.toml`.
 
-### Step 1: Linting with Ruff & Syntax Verification with Flake8
-**Ruff is blocking locally: 0 errors before opening a PR.** CI currently runs `ruff check . --exit-zero` (warning only), so a green CI does **not** prove Ruff is clean — the local run is the gate. Settings (line length, excludes) come from `pyproject.toml`.
-```powershell
-.\EDA\Scripts\python.exe -m ruff check .
-.\EDA\Scripts\python.exe -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.idea,EDA,venv,.venv
-.\EDA\Scripts\python.exe -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.idea,EDA,venv,.venv
-```
+| CI job | Script / command | What fails the build |
+|---|---|---|
+| `lint` | `ruff check .` and `flake8 --select=E9,F63,F7,F82` | Any Ruff finding (including notebooks); syntax errors or undefined names. Fix most with `ruff check . --fix`. |
+| `notebooks` | `check_notebooks.py --execute` | Invalid `nbformat` v4; stored error outputs; unexecuted cells or non-sequential `execution_count` (`1..N`); a failing cell on top-to-bottom re-execution; a CSV in `data/processed/` that changes on re-run (stale or non-deterministic) or is produced but not committed. |
+| `tests` | `pytest` | Any failing test. Skipped with a notice until `tests/test_*.py` exists (`X3`). |
+| `data-contract` | `check_data_contract.py` | `customers_clean_*.csv` breaking `specs/ontology.md`: missing columns, row count ≠ 10,000, non-sequential `customer_id`, values outside taxonomy or bounds, leaked raw sentinels, invalid email/phone/dates, or flags that disagree with their ontology formula. |
+| `repo-hygiene` | `check_repo_hygiene.py`, `check_conventions.py` | `data/raw/messy_customer_data.csv` or `docs/Briefing.md` changed (hash in `.github/protected-files.txt`); tracked `.env`, venv, caches or IDE files; any file `>= 15 MB`; artifacts not named `<task_id>_<slug>`; PNG charts not at 300 DPI; handoffs missing the five sections in order. |
+| `pr-metadata` (`pr-governance.yml`) | `check_pr_metadata.py` | PR title not `<type>(<scope>): <summary>`; branch not `<feature\|fix\|chore\|docs\|ci\|test\|refactor\|hotfix>/<kebab-name>`; `feature/*` PR without `Closes #<id>`; empty description. |
 
-### Step 2: Top-to-Bottom Notebook Execution & `nbformat` Schema Validation
-Verify that every `.ipynb` file in `notebooks/` is valid v4 JSON, has sequential `execution_count` (`1..N`) with zero traceback outputs, and executes cleanly from top to bottom:
-```powershell
-.\EDA\Scripts\python.exe -c "
-import os, sys, nbformat
-for root, _, files in os.walk('notebooks'):
-    for f in files:
-        if f.endswith('.ipynb'):
-            p = os.path.join(root, f)
-            with open(p, 'r', encoding='utf-8') as fh:
-                nb = nbformat.read(fh, as_version=4)
-            nbformat.validate(nb)
-            for idx, cell in enumerate(nb.cells):
-                if cell.cell_type == 'code':
-                    for out in cell.get('outputs', []):
-                        if out.get('output_type') == 'error':
-                            print(f'ERROR output in {p} cell {idx}: {out.get(\"ename\")}: {out.get(\"evalue\")}', file=sys.stderr)
-                            sys.exit(1)
-            print(f'VALIDATED: {p} ({len(nb.cells)} cells)')
-"
-```
-
-### Step 3: Automated Unit Tests (`pytest`)
-When `tests/` exists, run the full test suite:
-```powershell
-.\EDA\Scripts\python.exe -m pytest -v
-```
-
-### Step 4: Repository Hygiene & File Size Check (`< 15 MB`)
-Confirm no `.env` files, scratch files, or oversized binaries (`> 15 MB`) are tracked by Git:
-```powershell
-git status --short
-```
+**Re-execution note:** the `notebooks` check rewrites the notebook outputs under `data/processed/` in place. If it reports a changed CSV, inspect `git diff data/processed/` and commit the regenerated file together with the notebook.
 
 ---
 
@@ -68,7 +40,7 @@ git status --short
 Before opening a Pull Request, verify compliance against [`docs/Briefing.md`](../../../docs/Briefing.md) and [`docs/Work_Plan.md`](../../../docs/Work_Plan.md):
 
 - [ ] **100% English Compliance:** All code, comments, Markdown cells, chart titles/axes, commit messages, and PR text are written in English.
-- [ ] **Raw Data Integrity:** `git diff main -- data/raw/` confirms `data/raw/messy_customer_data.csv` was never modified after initial ingestion.
+- [ ] **Raw Data Integrity:** `check_repo_hygiene.py` confirms `data/raw/messy_customer_data.csv` matches its pinned hash in `.github/protected-files.txt`.
 - [ ] **Methodological Justification:** Every cleaning, imputation, outlier treatment, or transformation decision explains *why* it was chosen in Markdown.
 - [ ] **Visual Rigor:** Every chart has a descriptive title, sample size ($n$), named axes with units, legend where needed, and written interpretation.
 - [ ] **Dependency Sync:** Any newly imported third-party package (e.g., `streamlit`, `pytest`) is declared in `requirements.txt`.
@@ -93,7 +65,7 @@ Before opening a Pull Request, verify compliance against [`docs/Briefing.md`](..
    ```
 
 ### 3.2 Self-Review, Squash-Merge & Branch Deletion (`@levifvy`)
-1. Confirm GitHub Actions CI checks (`lint-and-validate` and `repo-hygiene`) are **green**:
+1. Confirm every GitHub Actions check (`lint`, `notebooks`, `tests`, `data-contract`, `repo-hygiene`, `pr-metadata`) is **green**:
    ```powershell
    gh pr checks <PR_NUMBER> --repo IA-P1-BCN/ai_project_EDA_Levi_Flores
    ```

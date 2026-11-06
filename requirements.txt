@@ -26,5 +26,6 @@ streamlit>=1.40.0
 
 # Quality gate: tests and linting (X3, pr-self-review)
 pytest>=8.0.0
-ruff>=0.6.0
+# Ruff is pinned so CI and the local gate apply the same default rule set.
+ruff==0.17.4
 flake8>=7.0.0

@@ -96,7 +96,8 @@ ai_project_EDA_Levi_Flores/
 │
 ├── .github/                      # GitHub automation and project governance
 │   ├── ISSUE_TEMPLATE/           # Structured YAML forms for Tasks and Daily Logs
-│   ├── workflows/ci.yml          # Automated CI pipeline (linting, notebook validation, tests)
+│   ├── workflows/                # CI quality gate (ci.yml) and PR governance (pr-governance.yml)
+│   ├── scripts/                  # CI check scripts; run_local_ci.py replays the gate locally
 │   └── pull_request_template.md  # Pull Request checklist and review template
 │
 ├── assets/                       # Visual assets and project banner

@@ -1,110 +1,142 @@
-name: CI - Integración Continua
+name: CI - Quality Gate
+
+# Every check below is also runnable locally with:
+#   .\EDA\Scripts\python.exe .github/scripts/run_local_ci.py
+# The check logic lives in .github/scripts/ so CI and the local gate never drift apart.
 
 on:
   push:
-    branches: [ "main", "master", "develop" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main", "master", "develop" ]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.12"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONUNBUFFERED: "1"
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  lint-and-validate:
-    name: 🔍 Linting y Validación de Código
+  lint:
+    name: Lint (Ruff + Flake8)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12"]
-
+    timeout-minutes: 10
     steps:
-      - name: 📥 Clonar repositorio
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: 🐍 Configurar Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: 📦 Instalar herramientas de calidad y dependencias base
-        run: |
-          python -m pip install --upgrade pip
-          pip install flake8 ruff nbqa nbformat pytest
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Install linters (versions from requirements.txt)
+        run: grep -E '^(ruff|flake8)\b' requirements.txt | xargs python -m pip install
 
-      - name: 🧹 Linting con Ruff
-        run: |
-          ruff check . --exit-zero
+      - name: Ruff (blocking, includes notebooks)
+        run: python -m ruff check . --output-format=github
 
-      - name: 🔎 Verificación de sintaxis Python con Flake8
-        run: |
-          # Detener la compilación si hay errores de sintaxis o nombres indefinidos
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.idea,EDA,venv,.venv
-          # Aviso de estilo y complejidad sin bloquear el build
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.idea,EDA,venv,.venv
+      - name: Flake8 syntax errors and undefined names (blocking)
+        run: >-
+          python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          --exclude=.idea,EDA,venv,.venv
 
-      - name: 📓 Validar formato e integridad de Jupyter Notebooks
-        run: |
-          python -c "
-          import os, sys, json, nbformat
-          has_error = False
-          for root, dirs, files in os.walk('.'):
-              if any(ignored in root for ignored in ['.idea', 'EDA', 'venv', '.venv', '.git']):
-                  continue
-              for f in files:
-                  if f.endswith('.ipynb') and not f.startswith('.'):
-                      path = os.path.join(root, f)
-                      try:
-                          with open(path, 'r', encoding='utf-8') as nbf:
-                              nb = nbformat.read(nbf, as_version=4)
-                              nbformat.validate(nb)
-                          print(f'✅ Notebook válido: {path}')
-                      except Exception as e:
-                          print(f'❌ Error en notebook {path}: {e}', file=sys.stderr)
-                          has_error = True
-          if has_error:
-              sys.exit(1)
-          "
+  notebooks:
+    name: Notebooks (structure, execution, reproducibility)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
 
-      - name: 🧪 Ejecución de Tests (si existen)
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install project dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Validate, execute top to bottom and check data/processed/ is reproducible
+        run: python .github/scripts/check_notebooks.py --execute --output-dir "$RUNNER_TEMP/executed-notebooks"
+
+      - name: Upload executed notebooks
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: executed-notebooks
+          path: ${{ runner.temp }}/executed-notebooks/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  tests:
+    name: Unit tests (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Detect test suite
+        id: detect
         run: |
-          if [ -d "tests" ] || [ -f "test_*.py" ] || [ -f "*_test.py" ]; then
-            pytest -v
+          if compgen -G "tests/test_*.py" > /dev/null; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No se encontraron tests automatizados todavía. Verificación completada con éxito."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No tests/test_*.py yet (task X3); skipping pytest."
           fi
+
+      - uses: actions/setup-python@v7
+        if: steps.detect.outputs.present == 'true'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install project dependencies
+        if: steps.detect.outputs.present == 'true'
+        run: python -m pip install -r requirements.txt
+
+      - name: Run pytest
+        if: steps.detect.outputs.present == 'true'
+        run: python -m pytest
+
+  data-contract:
+    name: Data contract (specs/ontology.md)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Validate processed datasets against the ontology
+        run: python .github/scripts/check_data_contract.py
 
   repo-hygiene:
-    name: 🛡️ Seguridad y Buenas Prácticas
+    name: Repository hygiene and conventions
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: 📥 Clonar repositorio
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: 🚫 Comprobar que no existan archivos sensibles (.env)
-        run: |
-          if git ls-files | grep -E "(^|/)\.env($|\..*)"; then
-            echo "::error::Se detectó un archivo .env en el repositorio. Los archivos .env no deben subirse a Git."
-            exit 1
-          else
-            echo "✅ No hay archivos .env rastreados."
-          fi
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: ⚖️ Control de tamaño de archivos en el repositorio
-        run: |
-          python -c "
-          import os, subprocess
-          files = subprocess.check_output(['git', 'ls-files']).decode('utf-8').splitlines()
-          oversized = []
-          for f in files:
-              if os.path.exists(f) and os.path.isfile(f):
-                  size_mb = os.path.getsize(f) / (1024 * 1024)
-                  if size_mb > 15:
-                      oversized.append((f, size_mb))
-          if oversized:
-              for f, sz in oversized:
-                  print(f'::warning file={f}::El archivo {f} pesa {sz:.2f} MB. Para datasets grandes considera almacenamiento externo o Git LFS.')
-          else:
-              print('✅ No hay archivos excesivamente pesados rastreados.')
-          "
+      - name: Protected files, forbidden files and file size
+        run: python .github/scripts/check_repo_hygiene.py
+
+      - name: Artifact naming, chart DPI and handoff contract
+        run: python .github/scripts/check_conventions.py
