@@ -1,0 +1,11 @@
+# Tool configuration only. Dependencies live in requirements.txt.
+
+[tool.pytest.ini_options]
+# Lets tests import project modules as `from src.cleaning import ...`.
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 127
+extend-exclude = ["EDA", ".idea"]
