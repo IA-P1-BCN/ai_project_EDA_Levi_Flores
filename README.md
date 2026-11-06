@@ -63,6 +63,20 @@ source EDA/bin/activate
 pip install -r requirements.txt
 ```
 
+### 📋 Project #54 Automation
+Task and daily issues created from the templates are added to Project `#54` automatically. Their `Status` then follows the Pull Request (GitHub Flow: every PR targets `main`):
+
+| Event | Task issue linked with `Closes #N` | Daily log |
+|---|---|---|
+| Issue created from template | Added to the project, `Backlog` | Added to the project, `Backlog` |
+| Draft PR opened | `In Progress` + `Branch` + `Pull Request` | — |
+| PR ready for review | `In Review` | — |
+| PR squash-merged into `main` | Issue closed by GitHub, `Done` | Merge recorded as a comment on that day's log |
+| PR closed without merge | `In Progress` | — |
+| Every morning (06:00 Madrid) | — | Today's log → `In Progress`; earlier open logs → `Done` and closed |
+
+PR-driven updates run in `.github/workflows/project-sync.yml` and need the repository secret `PROJECT_TOKEN` (a fine-grained token with organization **Projects: Read and write** and repository **Issues: Read and write**, **Pull requests: Read-only**). The project's built-in workflows *Item added*, *Item reopened*, *Item closed* and *Auto-close issue* are enabled in the project settings as a second layer.
+
 ### 🪝 Enabling the GitHub Flow Git Hooks (once per clone)
 ```bash
 git config core.hooksPath .githooks

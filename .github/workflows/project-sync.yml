@@ -1,0 +1,47 @@
+name: Project Sync (#54)
+
+# Moves task issues through Project #54 as their Pull Request advances (GitHub Flow: every PR
+# targets main) and rolls the daily logs over every morning.
+# Requires the repository secret PROJECT_TOKEN (fine-grained PAT with organization
+# "Projects: Read and write" and repository "Issues: Read and write" + "Pull requests: Read").
+# Without it, the job only prints a warning and succeeds.
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [opened, reopened, edited, ready_for_review, converted_to_draft, closed]
+  schedule:
+    - cron: "0 5 * * *"  # 06:00 Madrid in winter, 07:00 in summer
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project-sync-${{ github.event.pull_request.number || 'daily' }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync Project #54
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Sync linked issues with the PR state
+        if: github.event_name == 'pull_request'
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python .github/scripts/project_sync.py pr --number "$PR_NUMBER"
+
+      - name: Roll daily logs over
+        if: github.event_name != 'pull_request'
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: python .github/scripts/project_sync.py daily

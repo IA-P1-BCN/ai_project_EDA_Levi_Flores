@@ -58,7 +58,7 @@ Before opening a Pull Request, verify compliance against [`docs/Briefing.md`](..
    ```powershell
    gh pr create --repo IA-P1-BCN/ai_project_EDA_Levi_Flores --base main --head <branch-name> --assignee levifvy --milestone "<Milestone>" --title "<type>(<scope>): <summary>" --body-file <pr_body.md>
    ```
-3. Move all linked task issues in **Project `#54` (`EDA Project — Customer Messy Data`)** to `Status = "In Review"` and set `Pull Request = <PR_URL>`:
+3. **Project `#54` is updated automatically** by `.github/workflows/project-sync.yml` for every issue listed with `Closes #<N>`: draft → `In Progress`, ready for review → `In Review`, merged → `Done` (plus `Branch` and `Pull Request` fields, and a comment on that day's `[DAILY]` log). Check the `Project Sync (#54)` run; only if it warns that `PROJECT_TOKEN` is missing, update the items manually:
    ```powershell
    gh project item-edit 54 --owner IA-P1-BCN --url https://github.com/IA-P1-BCN/ai_project_EDA_Levi_Flores/issues/<N> --field "Status" --value "In Review"
    gh project item-edit 54 --owner IA-P1-BCN --url https://github.com/IA-P1-BCN/ai_project_EDA_Levi_Flores/issues/<N> --field "Pull Request" --text "<PR_URL>"
@@ -76,4 +76,4 @@ Before opening a Pull Request, verify compliance against [`docs/Briefing.md`](..
    git pull origin main
    git branch -D <branch-name>   # local only; -D because squash merges are not ancestors of main
    ```
-3. Verify that all linked task issues are `CLOSED` and marked `Done` in **Project `#54`**, and update the active `[DAILY]` log issue.
+3. Verify that all linked task issues are `CLOSED` and marked `Done` in **Project `#54`** (automatic), and complete the active `[DAILY]` log issue. Daily logs roll over automatically every morning: today's log → `In Progress`, previous open logs → `Done` and closed.
