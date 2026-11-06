@@ -131,4 +131,4 @@ body:
         - label: Visualisations include titles, axis labels and legends when needed
         - label: Cleaning and methodological decisions are justified in writing
         - label: CI is green
-        - label: PR self-reviewed, squash-merged and branch deleted
+        - label: PR self-reviewed and squash-merged (remote branch kept)

@@ -67,9 +67,9 @@ pip install -r requirements.txt
 
 ## 🔀 Workflow: Simplified GitHub Flow
 
-1. **`main` changes only through Pull Requests:** `main` is always stable and executable, and every change enters via a Pull Request with green CI checks. Branch protection is not available for private repositories on the GitHub Free plan, so the rule is enforced by repository settings (squash merge only, branches auto-deleted on merge) and audited by the `Main Guard` workflow, which turns red if a commit reaches `main` without a squash-merged PR.
+1. **`main` changes only through Pull Requests:** `main` is always stable and executable, and every change enters via a Pull Request with green CI checks. Branch protection is not available for private repositories on the GitHub Free plan, so the rule is enforced by repository settings (squash merge only) and audited by the `Main Guard` workflow, which turns red if a commit reaches `main` without a squash-merged PR.
 2. **Short-lived feature branches:** One branch per delivery block (`feature/01-data-loading-and-cleaning`, `feature/02-essential-analysis`, etc.), created from an up-to-date `main`.
-3. **Self-review & Squash Merge:** Once CI passes and the Definition of Done checklist is complete, the author (`@levifvy`) performs a self-review, squash-merges the PR into `main`, and **deletes the merged branch** locally and remotely to keep the repository clean.
+3. **Self-review & Squash Merge:** Once CI passes and the Definition of Done checklist is complete, the author (`@levifvy`) performs a self-review, squash-merges the PR into `main`, and deletes the merged branch **locally only**. Remote branches are **kept** so the professor can audit how the project evolved.
 
 ```bash
 # 1. Start from an up-to-date main branch
