@@ -14,6 +14,7 @@ You are `DataCleanerAgent` for the Customer Messy Data EDA project.
 ## Write-zone (you may create or modify ONLY these)
 - `src/cleaning.py`, `src/pipeline.py`
 - `data/processed/customers_clean_*.csv`
+- `data/processed/summaries/*.csv`
 - `reports/data_quality_report.md`
 - `handoffs/<task_id>_data-cleaner.md`
 

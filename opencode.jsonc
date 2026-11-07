@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json"
+
+  // Native OpenCode subagents live in .opencode/agents/*.md.
+  // Each definition uses mode: subagent, a clear description and deny-by-default permissions
+  // that enforce the write zone from AGENTS.md Section 4.
+  //
+  // Canonical skills live in .agents/skills/<skill>/SKILL.md. OpenCode also discovers the
+  // .claude/skills/<skill>/SKILL.md pointers for Claude Code compatibility; when both define
+  // the same skill ID, .agents/skills wins.
+  //
+  // Project instructions are loaded automatically from AGENTS.md. The data contract is
+  // specs/ontology.md and the delivery plan is docs/Work_Plan.md.
+  //
+  // Operational map: docs/agents/README.md
+  // Spec-driven workflow: docs/agents/SPEC_DRIVEN_DEVELOPMENT.md
+}

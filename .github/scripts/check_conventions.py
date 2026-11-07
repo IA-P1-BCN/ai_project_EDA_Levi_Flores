@@ -64,6 +64,8 @@ def main() -> int:
     checked = 0
     for rel_path in tracked_files():
         name = rel_path.rsplit("/", 1)[-1]
+        if name.startswith("."):
+            continue  # .gitkeep placeholders keep empty artifact directories in Git
         for prefix, pattern, expected in RULES:
             if rel_path.startswith(prefix) and "/" not in rel_path[len(prefix):]:
                 checked += 1

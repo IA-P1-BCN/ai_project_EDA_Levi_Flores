@@ -44,14 +44,14 @@ This repository is engineered so that **Google Antigravity (Gemini Argon)**, **C
    | Engine | Project instructions | Subagent definitions | Skill discovery |
    |---|---|---|---|
    | **Claude Code** | `AGENTS.md` (this file) | `.claude/agents/<agent>.md` | `.claude/skills/<skill>/SKILL.md` (thin pointers to `.agents/skills/`) |
-   | **OpenCode** | `AGENTS.md` (this file) | Dispatch worker sessions with the persona contract from Section 3 | `.claude/skills/` and `.agents/skills/` |
+   | **OpenCode** | `AGENTS.md` (this file) | `.opencode/agents/<agent>.md` (native subagents with write-zone permissions) | `.claude/skills/` and `.agents/skills/` |
    | **Antigravity / Gemini Argon** | `AGENTS.md` (this file) | Define subagents from the persona contract in Section 3 | `.agents/skills/` |
 
    **Rule:** Never edit a skill under `.claude/skills/`. Those files only point to `.agents/skills/`, so all engines read the same protocol. Engine-specific wiring that is not listed here must be verified against the engine's current documentation before use.
 4. **Subagent Invocation Mapping:**
    - **Claude Code:** Invoke the `Agent` tool with `subagent_type` set to `data-cleaner`, `statistical-analyst`, `data-viz`, `executive-reporter`, or `quality-reviewer`. Each definition preloads its persona, skill, and write-zone; the prompt only needs the Task ID and inputs.
    - **Antigravity / Gemini Argon:** Create one subagent per persona in Section 3, passing the persona contract, its skill path, and its write-zone from Section 4.
-   - **OpenCode:** Dispatch parallel worker sessions scoped to the persona's owned file paths defined in Section 4.
+   - **OpenCode:** Invoke the `subagent` tool with the agent ID (`data-cleaner`, `statistical-analyst`, `data-viz`, `executive-reporter`, `quality-reviewer`). Each `.opencode/agents/<agent>.md` definition preloads the persona, the skill pointer, the write-zone permissions and the handoff contract; the prompt only needs the Task ID and inputs.
 
 ---
 
@@ -65,7 +65,7 @@ This repository is engineered so that **Google Antigravity (Gemini Argon)**, **C
   2. Enforce `snake_case` naming, reconstruct sequential `customer_id` (`C00001`–`C10000`), standardize categorical taxonomy (`Male`, `Female`, `Unknown`), and cast dates (`%d/%m/%Y` → `datetime64[us]`, the pandas default resolution).
   3. Document explicit domain justifications (*why* keep `NaN` vs. median imputation vs. indicator flags) and own every **data-quality flag** in [`specs/ontology.md`](specs/ontology.md) §3.2 (`has_valid_email`, `has_valid_phone`, `is_date_inverted`, `is_geo_mismatch`, `is_age_missing`, `is_purchase_missing`, `feedback_score_1_to_5`, `is_score_10_spike`, `completeness_score`).
   4. Extract reusable, type-hinted, pure cleaning functions into `src/cleaning.py` and CLI orchestration into `src/pipeline.py`.
-- **Exclusive Write-Zone:** `src/cleaning.py`, `src/pipeline.py`, `data/processed/customers_clean_*.csv`, `reports/data_quality_report.md`.
+- **Exclusive Write-Zone:** `src/cleaning.py`, `src/pipeline.py`, `data/processed/customers_clean_*.csv`, `data/processed/summaries/*.csv`, `reports/data_quality_report.md`.
 
 ### 3.2 `StatisticalAnalystAgent` — Quantitative & Feature Engineering Specialist
 - **Primary Tasks:** `E4–E6`, `M2–M6`, `A1`, `A2`, `A4`.
@@ -117,7 +117,7 @@ When two or more subagents run concurrently on the same workspace, each subagent
 
 | Subagent | Allowed Write Paths (Read/Write) | Read-Only Paths | Forbidden Write Paths |
 |---|---|---|---|
-| `DataCleanerAgent` | `src/cleaning.py`, `src/pipeline.py`, `data/processed/customers_clean_*.csv`, `reports/data_quality_report.md`, `handoffs/<task_id>_data-cleaner.md` | `data/raw/*`, `specs/*`, `docs/*` | `notebooks/*`, `assets/charts/*`, `tests/*` |
+| `DataCleanerAgent` | `src/cleaning.py`, `src/pipeline.py`, `data/processed/customers_clean_*.csv`, `data/processed/summaries/*.csv`, `reports/data_quality_report.md`, `handoffs/<task_id>_data-cleaner.md` | `data/raw/*`, `specs/*`, `docs/*` | `notebooks/*`, `assets/charts/*`, `tests/*` |
 | `StatisticalAnalystAgent` | `src/analysis.py`, `src/features.py`, `data/external/*`, `data/processed/customers_enriched_*.csv`, `data/processed/summaries/*.csv`, `handoffs/<task_id>_statistical-analyst.md` | `data/processed/customers_clean_*.csv`, `src/cleaning.py`, `specs/*` | `data/raw/*`, `notebooks/*`, `assets/charts/*` |
 | `DataVizAgent` | `src/visualization.py`, `app/dashboard.py`, `assets/charts/*`, `handoffs/<task_id>_data-viz.md` | `data/processed/*`, `src/cleaning.py`, `src/analysis.py`, `src/features.py`, `specs/*` | `data/raw/*`, `data/processed/*`, `notebooks/*` |
 | `ExecutiveReporterAgent` | `reports/executive_report.md`, `reports/presentation.md`, `handoffs/<task_id>_executive-reporter.md` | `data/processed/summaries/*`, `assets/charts/*`, `handoffs/*`, `notebooks/*` | `src/*`, `data/*`, `notebooks/*` |
