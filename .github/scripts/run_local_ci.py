@@ -34,7 +34,9 @@ def main() -> int:
         ("Repository hygiene", [PY, f"{SCRIPTS}/check_repo_hygiene.py"]),
         ("Naming and handoffs", [PY, f"{SCRIPTS}/check_conventions.py"]),
     ]
-    if (REPO_ROOT / "tests").is_dir():
+    # Match the CI workflow: run pytest only when tests/test_*.py exists (task X3).
+    tests_dir = REPO_ROOT / "tests"
+    if tests_dir.is_dir() and any(tests_dir.glob("test_*.py")):
         steps.append(("Pytest", [PY, "-m", "pytest"]))
 
     results = []
