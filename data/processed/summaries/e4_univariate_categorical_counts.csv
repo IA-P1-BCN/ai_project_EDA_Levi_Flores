@@ -1,0 +1,30 @@
+variable,category,n,pct_total,pct_known
+gender,Male,3800,38.0,50.3645
+gender,Female,3745,37.45,49.6355
+gender,Unknown,2455,24.55,
+city,Hyderabad,1144,11.44,12.8974
+city,Mumbai,1133,11.33,12.7734
+city,Pune,1130,11.3,12.7396
+city,Bangalore,1120,11.2,12.6268
+city,Chennai,1109,11.09,12.5028
+city,Delhi,1091,10.91,12.2999
+city,Ahmedabad,1087,10.87,12.2548
+city,Kolkata,1056,10.56,11.9053
+city,Unknown,1130,11.3,
+country,USA,1679,16.79,20.2387
+country,Australia,1660,16.6,20.0096
+country,Canada,1658,16.58,19.9855
+country,UK,1658,16.58,19.9855
+country,India,1641,16.41,19.7806
+country,Unknown,1704,17.04,
+feedback_score,1,532,5.32,10.5367
+feedback_score,2,495,4.95,9.8039
+feedback_score,3,556,5.56,11.0121
+feedback_score,4,423,4.23,8.3779
+feedback_score,5,522,5.22,10.3387
+feedback_score,10,2521,25.21,49.9307
+feedback_score,Missing,4951,49.51,
+contact_reachability,Omnichannel (Both),634,6.34,6.34
+contact_reachability,Email Only,1878,18.78,18.78
+contact_reachability,Phone Only,1876,18.76,18.76
+contact_reachability,Unreachable (None),5612,56.12,56.12
