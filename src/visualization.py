@@ -277,7 +277,17 @@ def plot_e4_age_distribution(df: pd.DataFrame, save: bool = True) -> plt.Figure:
         (q3_v, f"Q3: {q3_v:.1f}", PALETTE_PRIMARY),
         (float(valid_age.max()), f"Max: {valid_age.max():.0f}", "#374151"),
     ]:
-        ax_box.text(x_pos, -0.32, label_txt, ha="center", va="top", fontsize=8.5, fontweight="bold", color=col)
+        ax_box.text(
+            x_pos,
+            -0.32,
+            label_txt,
+            ha="center",
+            va="top",
+            fontsize=8.5,
+            fontweight="bold",
+            color=col,
+            bbox={"boxstyle": "round,pad=0.12", "facecolor": "white", "edgecolor": "none", "alpha": 0.9},
+        )
 
     ax_box.text(
         0.5,
@@ -437,7 +447,17 @@ def plot_e4_purchase_distribution(df: pd.DataFrame, save: bool = True) -> plt.Fi
         (q3_v, f"Q3: ${q3_v:,.0f}", PALETTE_PRIMARY),
         (float(valid_spend.max()), f"Max: ${valid_spend.max():,.0f}", "#374151"),
     ]:
-        ax_box.text(x_pos, -0.32, label_txt, ha="center", va="top", fontsize=8.5, fontweight="bold", color=col)
+        ax_box.text(
+            x_pos,
+            -0.32,
+            label_txt,
+            ha="center",
+            va="top",
+            fontsize=8.5,
+            fontweight="bold",
+            color=col,
+            bbox={"boxstyle": "round,pad=0.12", "facecolor": "white", "edgecolor": "none", "alpha": 0.9},
+        )
 
     ax_box.text(
         0.5,
@@ -1159,6 +1179,7 @@ def plot_e5_age_vs_spend(df: pd.DataFrame, save: bool = True) -> plt.Figure:
         y="purchase_amount",
         scatter=False,
         ci=95,
+        seed=42,
         ax=ax,
         color=PALETTE_PRIMARY,
         line_kws={"linewidth": 2.2, "linestyle": "--"},
