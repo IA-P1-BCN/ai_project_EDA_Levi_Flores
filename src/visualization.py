@@ -1,4 +1,4 @@
-"""Publication-grade static visualization module for Essential EDA tasks E4 and E5.
+"""Publication-grade static visualization module for Essential & Medium EDA (E4, E5, M2).
 
 Implements the visual design system, Okabe-Ito colorblind-safe palette, five-element chart
 anatomy, and deterministic 300 DPI export protocol defined in ``specs/ontology.md`` and
@@ -50,6 +50,7 @@ CATEGORICAL_PALETTE: list[str] = [
 ]
 
 SOURCE_CAPTION: str = "Source: Customer Messy Data (customers_clean_v1.csv) | Author: @levifvy"
+SOURCE_CAPTION_V2: str = "Source: Customer Messy Data (customers_clean_v2.csv) | Author: @levifvy"
 
 
 def apply_publication_theme() -> None:
@@ -79,12 +80,22 @@ def apply_publication_theme() -> None:
     )
 
 
-def save_publication_figure(fig: plt.Figure, task_id: str, slug: str) -> Path:
+def save_publication_figure(
+    fig: plt.Figure,
+    task_id: str,
+    slug: str,
+    output_dir: Path | None = None,
+) -> Path:
     """Save figure deterministically at exact 300 DPI with tight white bounding box."""
-    CHARTS_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = CHARTS_DIR / f"{task_id.lower()}_{slug}.png"
+    target_dir = output_dir if output_dir is not None else CHARTS_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    out_path = target_dir / f"{task_id.lower()}_{slug}.png"
     fig.savefig(out_path, dpi=300, bbox_inches="tight", facecolor="white")
-    print(f"Saved figure: {out_path.relative_to(REPO_ROOT).as_posix()}")
+    try:
+        rel_display = out_path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        rel_display = out_path.as_posix()
+    print(f"Saved figure: {rel_display}")
     return out_path
 
 
@@ -95,6 +106,7 @@ def _add_publication_chrome(
     title_y: float = 0.985,
     subtitle_y: float = 0.938,
     caption_y: float = 0.008,
+    source_caption: str = SOURCE_CAPTION,
 ) -> None:
     """Attach finding-driven title, sample-size subtitle, and source footnote caption."""
     fig.text(
@@ -119,7 +131,7 @@ def _add_publication_chrome(
     fig.text(
         0.01,
         caption_y,
-        SOURCE_CAPTION,
+        source_caption,
         ha="left",
         va="bottom",
         fontsize=9,
@@ -1561,8 +1573,697 @@ def generate_essential_charts(df: pd.DataFrame | None = None) -> dict[str, Path]
     return exported
 
 
+def _derive_valid_tenure_days(df: pd.DataFrame) -> pd.Series:
+    """Derive chronologically valid customer tenure in days (excluding inverted date pairs)."""
+    if "customer_tenure_days" in df.columns:
+        return df["customer_tenure_days"].astype("float64")
+    s_dt = pd.to_datetime(df["signup_date"], errors="coerce")
+    p_dt = pd.to_datetime(df["last_purchase_date"], errors="coerce")
+    if "is_date_inverted" in df.columns:
+        is_inv = df["is_date_inverted"].astype(bool)
+    else:
+        is_inv = s_dt.notna() & p_dt.notna() & (p_dt < s_dt)
+    raw_days = (p_dt - s_dt).dt.days.astype("float64")
+    return raw_days.where(~is_inv, np.nan)
+
+
+# =============================================================================
+# M2 OUTLIER DETECTION & TREATMENT CHARTS (2 FIGURES)
+# =============================================================================
+
+
+def plot_m2_iqr_outlier_boxplots(
+    df: pd.DataFrame,
+    save: bool = True,
+    output_dir: Path | None = None,
+) -> plt.Figure:
+    """Plot M2 2x2 Tukey 1.5xIQR outlier audit and feedback quartile-masking proof."""
+    apply_publication_theme()
+    rng = np.random.default_rng(42)
+
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(16.0, 10.2))
+    fig.subplots_adjust(left=0.06, right=0.98, top=0.87, bottom=0.08, wspace=0.22, hspace=0.38)
+    ax_age, ax_spend = axes[0, 0], axes[0, 1]
+    ax_ten, ax_fb = axes[1, 0], axes[1, 1]
+
+    # --- Panel (a): Age (Years) ---
+    valid_age = df["age"].dropna().astype("float64")
+    age_q1, age_med, age_q3 = (float(valid_age.quantile(q)) for q in (0.25, 0.50, 0.75))
+    age_iqr = age_q3 - age_q1
+    age_lo, age_hi = age_q1 - 1.5 * age_iqr, age_q3 + 1.5 * age_iqr
+    age_mean = float(valid_age.mean())
+
+    ax_age.axvspan(-18, age_lo, color="#FEE2E2", alpha=0.55)
+    ax_age.axvspan(age_hi, 108, color="#FEE2E2", alpha=0.55)
+    ax_age.axvline(age_lo, color="#B91C1C", linestyle="--", linewidth=1.8)
+    ax_age.axvline(age_hi, color="#B91C1C", linestyle="--", linewidth=1.8)
+
+    y_jit_age = rng.uniform(-0.13, 0.13, size=len(valid_age))
+    ax_age.scatter(valid_age, y_jit_age, s=10, alpha=0.14, color=PALETTE_SECONDARY, edgecolors="none", zorder=2)
+    sns.boxplot(
+        x=valid_age,
+        ax=ax_age,
+        width=0.34,
+        color=PALETTE_PRIMARY,
+        boxprops={"alpha": 0.70, "edgecolor": "#111827", "linewidth": 1.4, "zorder": 3},
+        medianprops={"color": PALETTE_TEAL, "linewidth": 2.6, "zorder": 4},
+        whiskerprops={"color": "#111827", "linewidth": 1.4},
+        capprops={"color": "#111827", "linewidth": 1.4},
+    )
+    ax_age.set_xlim(-18, 108)
+    ax_age.set_ylim(-0.95, 0.95)
+    ax_age.scatter([age_mean], [0], color=PALETTE_ACCENT, marker="D", s=58, zorder=5, edgecolors="white", linewidths=0.7)
+
+    for x_p, lbl, col in [
+        (float(valid_age.min()), f"Min\n{valid_age.min():.0f}", "#374151"),
+        (age_q1, f"Q1\n{age_q1:.1f}", PALETTE_PRIMARY),
+        (age_med, f"Med\n{age_med:.1f}", PALETTE_TEAL),
+        (age_q3, f"Q3\n{age_q3:.1f}", PALETTE_PRIMARY),
+        (float(valid_age.max()), f"Max\n{valid_age.max():.0f}", "#374151"),
+    ]:
+        ax_age.text(
+            x_p,
+            -0.26,
+            lbl,
+            ha="center",
+            va="top",
+            fontsize=8.2,
+            fontweight="bold",
+            color=col,
+            bbox={"boxstyle": "round,pad=0.12", "facecolor": "white", "edgecolor": "none", "alpha": 0.9},
+        )
+
+    ax_age.text(
+        age_lo + 1.5,
+        0.0,
+        f"Lower Fence\n{age_lo:.1f} yrs",
+        ha="left",
+        va="center",
+        fontsize=8.1,
+        fontweight="bold",
+        color="#B91C1C",
+    )
+    ax_age.text(
+        age_hi - 1.5,
+        0.0,
+        f"Upper Fence\n{age_hi:.1f} yrs",
+        ha="right",
+        va="center",
+        fontsize=8.1,
+        fontweight="bold",
+        color="#B91C1C",
+    )
+    ax_age.text(
+        0.5,
+        0.93,
+        f"0 Tukey Outliers (1.5×IQR = {age_iqr:.1f} yrs; Mean = {age_mean:.2f} yrs) → Retain Unclipped",
+        transform=ax_age.transAxes,
+        ha="center",
+        va="top",
+        fontsize=8.4,
+        fontweight="bold",
+        color="#065F46",
+        bbox={"boxstyle": "round,pad=0.26", "facecolor": "#ECFDF5", "edgecolor": PALETTE_TEAL},
+    )
+    ax_age.text(
+        0.5,
+        0.04,
+        "Layer 1 Cleaning: 4,959 raw sentinels (-5 [2,506] & 200 [2,453]) + 2,576 blanks → NaN",
+        transform=ax_age.transAxes,
+        ha="center",
+        va="bottom",
+        fontsize=8.1,
+        color="#374151",
+        bbox={"boxstyle": "round,pad=0.24", "facecolor": "#F8FAFC", "edgecolor": "#CBD5E1"},
+    )
+    ax_age.set_yticks([])
+    ax_age.set_xlabel("Customer Age (Years)")
+    ax_age.set_title(f"(a) Customer Age — Valid Domain (n = {len(valid_age):,}, Range 18–70 yrs)", loc="left", pad=9)
+
+    # --- Panel (b): Purchase Amount (USD $) ---
+    valid_sp = df["purchase_amount"].dropna().astype("float64")
+    sp_q1, sp_med, sp_q3 = (float(valid_sp.quantile(q)) for q in (0.25, 0.50, 0.75))
+    sp_p01, sp_p99 = float(valid_sp.quantile(0.01)), float(valid_sp.quantile(0.99))
+    sp_iqr = sp_q3 - sp_q1
+    sp_lo, sp_hi = sp_q1 - 1.5 * sp_iqr, sp_q3 + 1.5 * sp_iqr
+    sp_mean = float(valid_sp.mean())
+
+    ax_spend.axvspan(-3400, sp_lo, color="#FEE2E2", alpha=0.55)
+    ax_spend.axvspan(sp_hi, 8400, color="#FEE2E2", alpha=0.55)
+    ax_spend.axvline(sp_lo, color="#B91C1C", linestyle="--", linewidth=1.8)
+    ax_spend.axvline(sp_hi, color="#B91C1C", linestyle="--", linewidth=1.8)
+    ax_spend.axvline(sp_p01, color="#7570B3", linestyle=":", linewidth=1.6)
+    ax_spend.axvline(sp_p99, color="#7570B3", linestyle=":", linewidth=1.6)
+
+    y_jit_sp = rng.uniform(-0.13, 0.13, size=len(valid_sp))
+    ax_spend.scatter(valid_sp, y_jit_sp, s=10, alpha=0.14, color=PALETTE_SECONDARY, edgecolors="none", zorder=2)
+    sns.boxplot(
+        x=valid_sp,
+        ax=ax_spend,
+        width=0.34,
+        color=PALETTE_SECONDARY,
+        boxprops={"alpha": 0.70, "edgecolor": "#111827", "linewidth": 1.4, "zorder": 3},
+        medianprops={"color": PALETTE_TEAL, "linewidth": 2.6, "zorder": 4},
+        whiskerprops={"color": "#111827", "linewidth": 1.4},
+        capprops={"color": "#111827", "linewidth": 1.4},
+    )
+    ax_spend.set_xlim(-3400, 8400)
+    ax_spend.set_ylim(-0.95, 0.95)
+    ax_spend.scatter([sp_mean], [0], color=PALETTE_ACCENT, marker="D", s=58, zorder=5, edgecolors="white", linewidths=0.7)
+
+    for x_p, lbl, col in [
+        (sp_q1, f"Q1\n${sp_q1:,.0f}", PALETTE_PRIMARY),
+        (sp_med, f"Med\n${sp_med:,.0f}", PALETTE_TEAL),
+        (sp_q3, f"Q3\n${sp_q3:,.0f}", PALETTE_PRIMARY),
+    ]:
+        ax_spend.text(
+            x_p,
+            -0.26,
+            lbl,
+            ha="center",
+            va="top",
+            fontsize=8.2,
+            fontweight="bold",
+            color=col,
+            bbox={"boxstyle": "round,pad=0.12", "facecolor": "white", "edgecolor": "none", "alpha": 0.9},
+        )
+
+    ax_spend.text(
+        sp_lo + 140,
+        0.0,
+        f"Lower Fence\n-${abs(sp_lo):,.0f}",
+        ha="left",
+        va="center",
+        fontsize=8.0,
+        fontweight="bold",
+        color="#B91C1C",
+    )
+    ax_spend.text(
+        sp_hi - 140,
+        0.0,
+        f"Upper Fence\n${sp_hi:,.2f}",
+        ha="right",
+        va="center",
+        fontsize=8.0,
+        fontweight="bold",
+        color="#B91C1C",
+    )
+    ax_spend.text(sp_p01 + 90, 0.44, f"P01=${sp_p01:.0f}", ha="left", va="center", fontsize=7.9, fontweight="bold", color="#7570B3")
+    ax_spend.text(sp_p99 - 90, 0.44, f"P99=${sp_p99:,.0f}", ha="right", va="center", fontsize=7.9, fontweight="bold", color="#7570B3")
+
+    ax_spend.text(
+        0.5,
+        0.93,
+        f"0 Tukey Outliers (Range $10.31–$4,998.67; Mean = ${sp_mean:,.2f}) → Retain Unclipped",
+        transform=ax_spend.transAxes,
+        ha="center",
+        va="top",
+        fontsize=8.4,
+        fontweight="bold",
+        color="#065F46",
+        bbox={"boxstyle": "round,pad=0.26", "facecolor": "#ECFDF5", "edgecolor": PALETTE_TEAL},
+    )
+    ax_spend.text(
+        0.5,
+        0.04,
+        "[P01, P99] winsorization shifts SD by -0.07% ($1,442.83→$1,441.83) while censoring 50 genuine orders",
+        transform=ax_spend.transAxes,
+        ha="center",
+        va="bottom",
+        fontsize=8.0,
+        color="#374151",
+        bbox={"boxstyle": "round,pad=0.24", "facecolor": "#F8FAFC", "edgecolor": "#CBD5E1"},
+    )
+    ax_spend.set_yticks([])
+    ax_spend.xaxis.set_major_formatter(_usd_formatter())
+    ax_spend.set_xlabel("Purchase Amount (USD $)")
+    ax_spend.set_title(f"(b) Purchase Amount — Valid Spend & [P01, P99] Check (n = {len(valid_sp):,})", loc="left", pad=9)
+
+    # --- Panel (c): Customer Tenure (Days) ---
+    valid_ten = _derive_valid_tenure_days(df).dropna()
+    tn_q1, tn_med, tn_q3 = (float(valid_ten.quantile(q)) for q in (0.25, 0.50, 0.75))
+    tn_iqr = tn_q3 - tn_q1
+    tn_lo, tn_hi = tn_q1 - 1.5 * tn_iqr, tn_q3 + 1.5 * tn_iqr
+    tn_mean = float(valid_ten.mean())
+
+    ax_ten.axvspan(-980, tn_lo, color="#FEE2E2", alpha=0.55)
+    ax_ten.axvspan(tn_hi, 2400, color="#FEE2E2", alpha=0.55)
+    ax_ten.axvline(tn_lo, color="#B91C1C", linestyle="--", linewidth=1.8)
+    ax_ten.axvline(tn_hi, color="#B91C1C", linestyle="--", linewidth=1.8)
+
+    y_jit_tn = rng.uniform(-0.13, 0.13, size=len(valid_ten))
+    ax_ten.scatter(valid_ten, y_jit_tn, s=11, alpha=0.18, color=PALETTE_TEAL, edgecolors="none", zorder=2)
+    sns.boxplot(
+        x=valid_ten,
+        ax=ax_ten,
+        width=0.34,
+        color=PALETTE_TEAL,
+        boxprops={"alpha": 0.62, "edgecolor": "#111827", "linewidth": 1.4, "zorder": 3},
+        medianprops={"color": PALETTE_PRIMARY, "linewidth": 2.6, "zorder": 4},
+        whiskerprops={"color": "#111827", "linewidth": 1.4},
+        capprops={"color": "#111827", "linewidth": 1.4},
+    )
+    ax_ten.set_xlim(-980, 2400)
+    ax_ten.set_ylim(-0.95, 0.95)
+    ax_ten.scatter([tn_mean], [0], color=PALETTE_ACCENT, marker="D", s=58, zorder=5, edgecolors="white", linewidths=0.7)
+
+    for x_p, lbl, col in [
+        (float(valid_ten.min()), "Min\n0", "#374151"),
+        (tn_q1, f"Q1\n{tn_q1:.1f}", PALETTE_PRIMARY),
+        (tn_med, f"Med\n{tn_med:.0f}", PALETTE_PRIMARY),
+        (tn_q3, f"Q3\n{tn_q3:,.0f}", PALETTE_PRIMARY),
+        (float(valid_ten.max()), f"Max\n{valid_ten.max():,.0f}", "#374151"),
+    ]:
+        ax_ten.text(
+            x_p,
+            -0.26,
+            lbl,
+            ha="center",
+            va="top",
+            fontsize=8.1,
+            fontweight="bold",
+            color=col,
+            bbox={"boxstyle": "round,pad=0.12", "facecolor": "white", "edgecolor": "none", "alpha": 0.9},
+        )
+
+    ax_ten.text(
+        tn_lo + 45,
+        0.0,
+        f"Lower Fence\n{tn_lo:.1f} d",
+        ha="left",
+        va="center",
+        fontsize=8.0,
+        fontweight="bold",
+        color="#B91C1C",
+    )
+    ax_ten.text(
+        tn_hi - 45,
+        0.44,
+        f"Upper Fence\n{tn_hi:,.2f} d",
+        ha="right",
+        va="center",
+        fontsize=8.0,
+        fontweight="bold",
+        color="#B91C1C",
+    )
+    ax_ten.text(
+        0.5,
+        0.93,
+        f"0 Tukey Outliers (Range 0–1,925 d; Mean = {tn_mean:.1f} d, Skew = 0.52) → Retain Unclipped",
+        transform=ax_ten.transAxes,
+        ha="center",
+        va="top",
+        fontsize=8.3,
+        fontweight="bold",
+        color="#065F46",
+        bbox={"boxstyle": "round,pad=0.26", "facecolor": "#ECFDF5", "edgecolor": PALETTE_TEAL},
+    )
+    ax_ten.text(
+        0.5,
+        0.04,
+        "Layer 1 Cleaning: 829 inverted date pairs (last_purchase < signup) isolated via is_date_inverted",
+        transform=ax_ten.transAxes,
+        ha="center",
+        va="bottom",
+        fontsize=8.0,
+        color="#374151",
+        bbox={"boxstyle": "round,pad=0.24", "facecolor": "#F8FAFC", "edgecolor": "#CBD5E1"},
+    )
+    ax_ten.set_yticks([])
+    ax_ten.xaxis.set_major_formatter(mticker.StrMethodFormatter("{x:,.0f}"))
+    ax_ten.set_xlabel("Customer Tenure (Days)")
+    ax_ten.set_title(f"(c) Chronologically Valid Customer Tenure (n = {len(valid_ten):,})", loc="left", pad=9)
+
+    # --- Panel (d): Feedback Score Quartile-Masking Proof ---
+    fb_raw = df["feedback_score"].dropna().astype("float64")
+    fb_likert = (
+        df["feedback_score_1_to_5"].dropna().astype("float64")
+        if "feedback_score_1_to_5" in df.columns
+        else fb_raw.where(fb_raw <= 5.0).dropna()
+    )
+    n_spike_10 = int((fb_raw == 10.0).sum())
+
+    fb_df = pd.concat(
+        [
+            pd.DataFrame({"regime": f"Full Scale 1–10\n(n={len(fb_raw):,})", "score": fb_raw}),
+            pd.DataFrame({"regime": f"Clean Likert 1–5\n(n={len(fb_likert):,})", "score": fb_likert}),
+        ],
+        ignore_index=True,
+    )
+    reg_order = [f"Full Scale 1–10\n(n={len(fb_raw):,})", f"Clean Likert 1–5\n(n={len(fb_likert):,})"]
+
+    sns.boxplot(
+        data=fb_df,
+        y="regime",
+        x="score",
+        order=reg_order,
+        hue="regime",
+        hue_order=reg_order,
+        palette=[PALETTE_MUTED, PALETTE_TEAL],
+        legend=False,
+        width=0.44,
+        boxprops={"alpha": 0.72, "edgecolor": "#111827", "linewidth": 1.4},
+        medianprops={"color": "#111827", "linewidth": 2.6},
+        whiskerprops={"color": "#111827", "linewidth": 1.4},
+        capprops={"color": "#111827", "linewidth": 1.4},
+        ax=ax_fb,
+    )
+    ax_fb.scatter(
+        [float(fb_raw.mean()), float(fb_likert.mean())],
+        [0, 1],
+        color=PALETTE_ACCENT,
+        marker="D",
+        s=52,
+        zorder=5,
+        edgecolors="white",
+        linewidths=0.7,
+    )
+
+    ax_fb.axvline(20.5, color=PALETTE_MUTED, linestyle="--", linewidth=1.8)
+    ax_fb.axvline(7.0, color="#B91C1C", linestyle="--", linewidth=2.0)
+    ax_fb.axvspan(7.0, 23.0, ymin=0.0, ymax=0.52, color="#FEE2E2", alpha=0.45)
+
+    # Highlight the 2,521 off-scale score=10 observations against the clean Likert fence (7.0)
+    ax_fb.scatter([10.0], [1.0], color=PALETTE_ACCENT, marker="X", s=165, zorder=6, edgecolors="#111827", linewidths=1.0)
+    ax_fb.annotate(
+        f"Score = 10 Spike (n = {n_spike_10:,} | 49.93%)\n+1.5×IQR beyond Likert fence (7.0)",
+        xy=(10.0, 1.0),
+        xytext=(11.3, 1.25),
+        fontsize=8.2,
+        fontweight="bold",
+        color=PALETTE_ACCENT,
+        arrowprops={"arrowstyle": "->", "color": PALETTE_ACCENT, "lw": 1.4},
+        bbox={"boxstyle": "round,pad=0.25", "facecolor": "#FFF7ED", "edgecolor": PALETTE_ACCENT, "alpha": 0.95},
+    )
+
+    ax_fb.text(20.1, -0.36, "Masked Raw Fence = 20.5\n(Q1=3, Q3=10, IQR=7)", ha="right", va="center", fontsize=7.9, fontweight="bold", color="#475569")
+    ax_fb.text(7.25, 0.56, "True Likert Fence = 7.0\n(Q1=2, Q3=4, IQR=2)", ha="left", va="center", fontsize=8.0, fontweight="bold", color="#B91C1C")
+
+    ax_fb.text(
+        0.5,
+        0.03,
+        "49.93% at 10 exceeds 25% quartile breakdown; capping 10→5 rejected (+266.8% false Promoter surge)",
+        transform=ax_fb.transAxes,
+        ha="center",
+        va="bottom",
+        fontsize=7.9,
+        color="#374151",
+        bbox={"boxstyle": "round,pad=0.24", "facecolor": "#F8FAFC", "edgecolor": "#CBD5E1"},
+    )
+    ax_fb.set_xlim(-2.0, 22.8)
+    ax_fb.set_ylim(1.88, -0.78)
+    ax_fb.set_ylabel("")
+    ax_fb.set_yticks([0, 1])
+    ax_fb.set_yticklabels(reg_order, fontweight="bold", fontsize=8.8)
+    ax_fb.set_xlabel("Satisfaction Rating (Score Units)")
+    ax_fb.set_title("(d) Feedback Score — Quartile-Breakdown Masking Proof", loc="left", pad=9)
+
+    _add_publication_chrome(
+        fig,
+        title="Zero Tukey Outliers on Valid Continuous Domains, While Score-10 (49.9%) Triggers Quartile Masking",
+        subtitle=(
+            "Scope: customers_clean_v2.csv (N = 10,000) | Valid domains: Age n = 2,465, Spend n = 2,466, "
+            "Tenure n = 855, Feedback n = 5,049 (Likert n = 2,528)"
+        ),
+        title_y=0.965,
+        subtitle_y=0.928,
+        caption_y=0.012,
+        source_caption=SOURCE_CAPTION_V2,
+    )
+
+    if save:
+        save_publication_figure(fig, "m2", "iqr_outlier_boxplots", output_dir=output_dir)
+    return fig
+
+
+def plot_m2_imputation_variance_distortion(
+    df: pd.DataFrame,
+    save: bool = True,
+    output_dir: Path | None = None,
+) -> plt.Figure:
+    """Plot M2 1x2 comparison of NaN Retention vs. Naive Median Imputation + Tukey IQR collapse."""
+    apply_publication_theme()
+    rng = np.random.default_rng(42)
+
+    fig = plt.figure(figsize=(15.8, 8.4))
+    gs = fig.add_gridspec(
+        nrows=2,
+        ncols=2,
+        height_ratios=[2.1, 1.4],
+        left=0.07,
+        right=0.98,
+        top=0.82,
+        bottom=0.10,
+        wspace=0.22,
+        hspace=0.18,
+    )
+    ax_age_h = fig.add_subplot(gs[0, 0])
+    ax_age_b = fig.add_subplot(gs[1, 0], sharex=ax_age_h)
+    ax_sp_h = fig.add_subplot(gs[0, 1])
+    ax_sp_b = fig.add_subplot(gs[1, 1], sharex=ax_sp_h)
+
+    specs = [
+        (
+            "age",
+            df["age"].astype("float64"),
+            ax_age_h,
+            ax_age_b,
+            np.arange(18, 73, 2),
+            (15, 73),
+            "Customer Age (Years)",
+            "(a) Customer Age: 75.35% Missingness (n = 2,465 Valid vs. N = 10,000 Imputed)",
+            False,
+        ),
+        (
+            "purchase_amount",
+            df["purchase_amount"].astype("float64"),
+            ax_sp_h,
+            ax_sp_b,
+            np.linspace(0, 5000, 26),
+            (-180, 5220),
+            "Purchase Amount (USD $)",
+            "(b) Purchase Amount: 75.34% Missingness (n = 2,466 Valid vs. N = 10,000 Imputed)",
+            True,
+        ),
+    ]
+
+    for _name, raw_s, ax_h, ax_b, bins, x_lims, x_label, p_title, is_usd in specs:
+        valid = raw_s.dropna()
+        med_val = float(valid.median())
+        imputed = raw_s.fillna(med_val)
+
+        sd_valid = float(valid.std(ddof=1))
+        sd_imp = float(imputed.std(ddof=1))
+        sd_pct = (sd_imp - sd_valid) / sd_valid * 100.0
+
+        q1_val = float(valid.quantile(0.25))
+        q3_val = float(valid.quantile(0.75))
+        iqr_valid = q3_val - q1_val
+
+        # Count genuine observations destroyed if Tukey IQR is applied after median imputation
+        q1_imp, q3_imp = float(imputed.quantile(0.25)), float(imputed.quantile(0.75))
+        iqr_imp = q3_imp - q1_imp
+        lo_imp, hi_imp = q1_imp - 1.5 * iqr_imp, q3_imp + 1.5 * iqr_imp
+        false_outliers = valid[(valid < lo_imp) | (valid > hi_imp)]
+        n_destroyed = len(false_outliers)
+        pct_destroyed = n_destroyed / len(valid) * 100.0
+
+        # Top Histogram with symlog scale so both genuine ~100/bin bars and ~7,600 needle spike are clear
+        imp_counts, edges = np.histogram(imputed, bins=bins)
+        val_counts, _ = np.histogram(valid, bins=bins)
+        widths = np.diff(edges) * 0.88
+        centers = edges[:-1] + np.diff(edges) / 2.0
+
+        ax_h.bar(
+            centers,
+            imp_counts,
+            width=widths,
+            color=PALETTE_ACCENT,
+            alpha=0.82,
+            edgecolor="white",
+            label="Naive Median-Imputed Spike (Rejected, N = 10,000)",
+        )
+        ax_h.bar(
+            centers,
+            val_counts,
+            width=widths,
+            color=PALETTE_PRIMARY,
+            alpha=0.92,
+            edgecolor="white",
+            label=f"NaN Retention Genuine Distribution (Chosen, n = {len(valid):,})",
+        )
+        ax_h.set_yscale("symlog", linthresh=200)
+        ax_h.set_ylim(0, 14500)
+        ax_h.set_yticks([0, 50, 100, 150, 200, 1000, 5000, 10000])
+        ax_h.yaxis.set_major_formatter(mticker.StrMethodFormatter("{x:,.0f}"))
+        ax_h.set_ylabel("Customer Count (Symlog)")
+        ax_h.set_title(p_title, loc="left", pad=10, fontsize=11.2)
+        ax_h.tick_params(labelbottom=False)
+
+        spike_max = int(imp_counts.max())
+        med_fmt = f"${med_val:,.2f}" if is_usd else f"{med_val:.1f} yrs"
+        sd_v_fmt = f"${sd_valid:,.2f}" if is_usd else f"{sd_valid:.2f}"
+        sd_i_fmt = f"${sd_imp:,.2f}" if is_usd else f"{sd_imp:.2f}"
+        iqr_v_fmt = f"${iqr_valid:,.2f}" if is_usd else f"{iqr_valid:.1f}"
+
+        ax_h.annotate(
+            f"Artificial Median Needle ({med_fmt})\n"
+            f"Peak Bin: {spike_max:,} accounts\n"
+            f"SD: {sd_v_fmt} → {sd_i_fmt} ({sd_pct:.2f}%)\n"
+            f"IQR: {iqr_v_fmt} → 0.00 (-100.00%)",
+            xy=(med_val, spike_max),
+            xytext=(0.03, 0.94),
+            textcoords="axes fraction",
+            ha="left",
+            va="top",
+            fontsize=8.3,
+            fontweight="bold",
+            color="#9A3412",
+            arrowprops={"arrowstyle": "->", "color": PALETTE_ACCENT, "lw": 1.5},
+            bbox={"boxstyle": "round,pad=0.35", "facecolor": "#FFF7ED", "edgecolor": PALETTE_ACCENT, "alpha": 0.96},
+        )
+
+        # Bottom Paired Boxplot: Row 0 = Chosen NaN Retention; Row 1 = Rejected Impute + Tukey IQR
+        box_df = pd.DataFrame({"regime": "NaN Retention\n(Chosen)", "val": valid})
+        sns.boxplot(
+            data=box_df,
+            y="regime",
+            x="val",
+            order=["NaN Retention\n(Chosen)", "Median Imputed\n(Rejected)"],
+            width=0.38,
+            color=PALETTE_TEAL,
+            boxprops={"alpha": 0.72, "edgecolor": "#111827", "linewidth": 1.4},
+            medianprops={"color": "#111827", "linewidth": 2.5},
+            whiskerprops={"color": "#111827", "linewidth": 1.4},
+            capprops={"color": "#111827", "linewidth": 1.4},
+            ax=ax_b,
+        )
+
+        # Plot false outliers on Row 1 and degenerate IQR=0 vertical bar at median
+        y_jit = 1.0 + rng.uniform(-0.14, 0.14, size=len(false_outliers))
+        ax_b.scatter(
+            false_outliers,
+            y_jit,
+            s=14,
+            alpha=0.30,
+            color=PALETTE_ACCENT,
+            edgecolors="none",
+            zorder=3,
+        )
+        ax_b.plot([med_val, med_val], [0.76, 1.24], color="#B91C1C", linewidth=3.4, zorder=5)
+
+        ax_b.text(
+            0.98,
+            0.91,
+            f"0 / {len(valid):,} (0.00%) Flagged — Preserves True Spread",
+            transform=ax_b.transAxes,
+            ha="right",
+            va="center",
+            fontsize=8.0,
+            fontweight="bold",
+            color="#065F46",
+            bbox={"boxstyle": "round,pad=0.2", "facecolor": "#ECFDF5", "edgecolor": PALETTE_TEAL, "alpha": 0.92},
+        )
+        ax_b.text(
+            0.98,
+            0.10,
+            f"Degenerate IQR = 0.00 → Falsely Destroys {n_destroyed:,} / {len(valid):,} ({pct_destroyed:.2f}%) Valid Rows!",
+            transform=ax_b.transAxes,
+            ha="right",
+            va="center",
+            fontsize=8.0,
+            fontweight="bold",
+            color="#991B1B",
+            bbox={"boxstyle": "round,pad=0.2", "facecolor": "#FEF2F2", "edgecolor": "#DC2626", "alpha": 0.94},
+        )
+
+        ax_b.set_xlim(*x_lims)
+        ax_b.set_ylim(1.72, -0.70)
+        ax_b.set_ylabel("")
+        ax_b.set_yticks([0, 1])
+        ax_b.set_yticklabels(["NaN Retention\n(Chosen)", "Median Imputed\n(Rejected)"], fontweight="bold", fontsize=8.8)
+        ax_b.set_xlabel(x_label)
+        if is_usd:
+            ax_b.xaxis.set_major_formatter(_usd_formatter())
+
+    legend_handles = [
+        mpatches.Patch(color=PALETTE_PRIMARY, label="NaN Retention Genuine Distribution (Chosen)"),
+        mpatches.Patch(color=PALETTE_ACCENT, label="Naive Median-Imputed Spike / Falsely Flagged 'Outliers' (Rejected)"),
+        mlines.Line2D([0], [0], color="#B91C1C", lw=3.0, label="Degenerate Zero-Width Fence (Q1 = Med = Q3, IQR = 0.00)"),
+    ]
+    fig.legend(
+        handles=legend_handles,
+        loc="upper right",
+        bbox_to_anchor=(0.98, 0.905),
+        ncol=3,
+        frameon=True,
+        facecolor="white",
+        edgecolor="#CBD5E1",
+        fontsize=8.6,
+    )
+
+    _add_publication_chrome(
+        fig,
+        title="Naive Median Imputation Slashes SD by 50.3%, Collapses IQR to Zero, and Destroys 98%–100% of Data",
+        subtitle=(
+            "Scope: customers_clean_v2.csv (N = 10,000) | Empirical M1→M2 proof why Tukey's IQR rule "
+            "must run on un-imputed valid records rather than single-value imputed columns"
+        ),
+        title_y=0.978,
+        subtitle_y=0.938,
+        caption_y=0.012,
+        source_caption=SOURCE_CAPTION_V2,
+    )
+
+    if save:
+        save_publication_figure(fig, "m2", "imputation_variance_distortion", output_dir=output_dir)
+    return fig
+
+
+def generate_m2_charts(
+    df: pd.DataFrame | None = None,
+    output_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Generate and export both Medium Level M2 outlier figures at 300 DPI."""
+    if df is None:
+        df = load_clean_customers("v2")
+
+    target_dir = output_dir if output_dir is not None else CHARTS_DIR
+    builders = [
+        ("m2_iqr_outlier_boxplots", plot_m2_iqr_outlier_boxplots),
+        ("m2_imputation_variance_distortion", plot_m2_imputation_variance_distortion),
+    ]
+
+    exported: dict[str, Path] = {}
+    for key, fn in builders:
+        fig = fn(df, save=True, output_dir=target_dir)
+        plt.close(fig)
+        exported[key] = target_dir / f"{key}.png"
+    return exported
+
+
 if __name__ == "__main__":
+    import argparse
+
     import matplotlib
 
     matplotlib.use("Agg")
-    generate_essential_charts()
+    parser = argparse.ArgumentParser(description="Generate publication EDA figures.")
+    parser.add_argument(
+        "--block",
+        choices=("essential", "m2", "all"),
+        default="m2",
+        help="Delivery block of charts to export (default: m2).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Optional directory override for exported PNGs.",
+    )
+    args = parser.parse_args()
+
+    if args.block in ("essential", "all"):
+        generate_essential_charts()
+    if args.block in ("m2", "all"):
+        generate_m2_charts(output_dir=args.output_dir)

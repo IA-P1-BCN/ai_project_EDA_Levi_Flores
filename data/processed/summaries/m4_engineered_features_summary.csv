@@ -1,0 +1,21 @@
+feature_name,feature_type,level_or_scope,n_records,pct_of_total,pct_of_known,valid_spend_n,mean_spend_usd,median_spend_usd,total_spend_usd,spend_share_pct,cont_mean,cont_std,cont_min,cont_q1,cont_median,cont_q3,cont_max,cont_iqr,cont_skewness,cont_kurtosis,analytical_value
+age_group,ordered_category,18-29 (Young Adult),571,5.71,23.1643,134,2334.766,2328.785,312858.64,5.177,,,,,,,,,,,Demographic lifecycle segmentation for Q1/Q2 cohort spend profiling
+age_group,ordered_category,30-44 (Early Career),742,7.42,30.1014,194,2418.8665,2550.22,469260.1,7.7651,,,,,,,,,,,Demographic lifecycle segmentation for Q1/Q2 cohort spend profiling
+age_group,ordered_category,45-59 (Mid-Senior),648,6.48,26.288,155,2433.8252,2390.24,377242.91,6.2424,,,,,,,,,,,Demographic lifecycle segmentation for Q1/Q2 cohort spend profiling
+age_group,ordered_category,60+ (Senior),504,5.04,20.4462,117,2556.1793,2543.57,299072.98,4.9489,,,,,,,,,,,Demographic lifecycle segmentation for Q1/Q2 cohort spend profiling
+age_group,ordered_category,Unknown,7535,75.35,,1866,2457.0117,2469.27,4584783.83,75.8666,,,,,,,,,,,Demographic lifecycle segmentation for Q1/Q2 cohort spend profiling
+spend_tier,ordered_category,"Low (<$1,200)",637,6.37,25.8313,637,601.108,583.94,382905.81,6.3361,,,,,,,,,,,"Fixed commercial value tiers isolating VIP (> $3,500) revenue concentration (Q2)"
+spend_tier,ordered_category,"Medium ($1,200-$3,500)",1105,11.05,44.8094,1105,2355.655,2378.45,2602998.72,43.0731,,,,,,,,,,,"Fixed commercial value tiers isolating VIP (> $3,500) revenue concentration (Q2)"
+spend_tier,ordered_category,"High (>$3,500)",724,7.24,29.3593,724,4222.8093,4213.425,3057313.93,50.5908,,,,,,,,,,,"Fixed commercial value tiers isolating VIP (> $3,500) revenue concentration (Q2)"
+spend_tier,ordered_category,Missing,7534,75.34,,0,,,0.0,0.0,,,,,,,,,,,"Fixed commercial value tiers isolating VIP (> $3,500) revenue concentration (Q2)"
+feedback_tier,ordered_category,Detractor (1-2),1027,10.27,20.3407,276,2388.8778,2350.01,659330.28,10.9103,,,,,,,,,,,"NPS-style Likert grouping isolating the 2,521-row scale-10 survey spike (Q3)"
+feedback_tier,ordered_category,Passive (3),556,5.56,11.0121,145,2486.0873,2460.06,360482.66,5.9651,,,,,,,,,,,"NPS-style Likert grouping isolating the 2,521-row scale-10 survey spike (Q3)"
+feedback_tier,ordered_category,Promoter (4-5),945,9.45,18.7166,227,2349.588,2367.26,533356.48,8.8257,,,,,,,,,,,"NPS-style Likert grouping isolating the 2,521-row scale-10 survey spike (Q3)"
+feedback_tier,ordered_category,Scale-10 Spike (10),2521,25.21,49.9307,600,2460.0636,2429.38,1476038.15,24.4247,,,,,,,,,,,"NPS-style Likert grouping isolating the 2,521-row scale-10 survey spike (Q3)"
+feedback_tier,ordered_category,Missing,4951,49.51,,1218,2474.5574,2488.605,3014010.89,49.8743,,,,,,,,,,,"NPS-style Likert grouping isolating the 2,521-row scale-10 survey spike (Q3)"
+contact_reachability_tier,ordered_category,Omnichannel (Both),634,6.34,6.34,152,2632.9884,2577.685,400214.23,6.6225,,,,,,,,,,,Operational CRM dispatch routing across email and SMS channels (Q3)
+contact_reachability_tier,ordered_category,Email Only,1878,18.78,18.78,456,2434.2409,2431.995,1110013.86,18.3679,,,,,,,,,,,Operational CRM dispatch routing across email and SMS channels (Q3)
+contact_reachability_tier,ordered_category,Phone Only,1876,18.76,18.76,461,2483.7008,2564.43,1144986.08,18.9466,,,,,,,,,,,Operational CRM dispatch routing across email and SMS channels (Q3)
+contact_reachability_tier,ordered_category,Unreachable (None),5612,56.12,56.12,1397,2425.1999,2421.13,3388004.29,56.0629,,,,,,,,,,,Operational CRM dispatch routing across email and SMS channels (Q3)
+customer_tenure_days,continuous_float64,Valid Chronological (last_purchase_date >= signup_date),855,8.55,100.0,219,2441.706,2423.82,534733.62,8.8485,688.5883,464.1109,0.0,299.5,638.0,1010.0,1925.0,710.5,0.5179,-0.6002,Excludes 829 inverted date pairs to measure true active lifecycle duration in days (Q3/M6).
+log_purchase_amount,continuous_float64,np.log1p(purchase_amount) on Valid Orders,2466,24.66,100.0,2466,2450.6158,2460.355,6043218.46,100.0,7.491,0.9879,2.4257,7.0565,7.8085,8.2255,8.5171,1.169,-1.6273,2.9457,"Compresses 484.8x dollar span ($10.31-$4,998.67, raw skew=0.0139) into [2.43, 8.52] (SD=1.00) for Multiplicative/Elasticity modeling (A4)."
