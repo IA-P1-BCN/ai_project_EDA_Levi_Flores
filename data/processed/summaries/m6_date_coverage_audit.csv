@@ -1,0 +1,15 @@
+metric,n,base_n,pct_of_base,rule_or_note
+total_customers,10000,10000,100.0,"Full enriched population (10,000 rows) used as the audit denominator."
+signup_date_valid,4996,10000,49.96,Parsed signup dates retained for cohort analysis; span 2020-08-06 to 2026-01-26 across 66 calendar months. Inverted pairs are retained here because signup_date is individually valid.
+signup_date_missing_nat,5004,10000,50.04,Blank/'not_a_date' rows coerced to NaT in E3; excluded from all signup series.
+last_purchase_date_valid,3348,10000,33.48,Parsed last-purchase dates retained for activity analysis; span 2020-08-06 to 2026-01-25 across 66 calendar months. Inverted pairs are retained here because last_purchase_date is individually valid.
+last_purchase_date_missing_nat,6652,10000,66.52,Blank/'missing' rows coerced to NaT in E3; excluded from all activity series.
+both_dates_valid,1684,10000,16.84,Rows with both dates present (KPI-5 denominator).
+is_date_inverted_true,829,1684,49.228,"last_purchase_date < signup_date (KPI-5 anomaly): conditioned to NaN in customer_tenure_days and excluded from KPI-5, but retained in standalone signup and last-purchase series to avoid selection bias (see signup_rows_if_inverted_excluded)."
+chronologically_valid_dual_dates,855,1684,50.772,last_purchase_date >= signup_date (KPI-5 numerator); source of valid tenure.
+customer_tenure_days_valid,855,10000,8.55,Non-negative (last_purchase_date - signup_date) durations in days; identical to the chronologically valid dual-date count by construction.
+customer_tenure_days_excluded_inverted,829,10000,8.29,Inverted pairs conditioned to NaN rather than sign-flipped.
+customer_tenure_days_excluded_missing_dates,8316,10000,83.16,Rows missing at least one date; tenure left as NaN with no imputation.
+signup_rows_if_inverted_excluded,4167,4996,83.4067,"Counterfactual audit (rejected): dropping inverted pairs from the single-date signup series would discard 829 late signups and bias monthly signup volume downward (quantified as a rejected sensitivity row in m6_trend_tests.csv), so inverted pairs stay in the signup series."
+last_purchase_rows_if_inverted_excluded,2519,3348,75.2389,"Counterfactual audit (rejected): dropping inverted pairs from the single-date activity series would discard 829 early last purchases and bias monthly activity upward (quantified as a rejected sensitivity row in m6_trend_tests.csv), so inverted pairs stay in the activity series."
+temporal_series_exclusion_rule,10000,10000,100.0,"Temporal series are built from single-date fields: NaT signup/last-purchase dates (from 'not_a_date'/'missing' sentinels and blanks) are excluded, while the 829 is_date_inverted rows are retained because each individual date is valid. Inverted pairs are excluded only from dual-date metrics (customer_tenure_days, KPI-5); dropping them from single-date series would systematically discard late signups and early last purchases and fabricate a spurious trend. Pairwise/cohort n is always reported."
