@@ -1,0 +1,7 @@
+variable,age,purchase_amount,customer_tenure_days,feedback_score_1_to_5,completeness_score,log_purchase_amount
+age,2465,600,206,601,2465,600
+purchase_amount,600,2466,219,648,2466,2466
+customer_tenure_days,206,219,855,220,855,219
+feedback_score_1_to_5,601,648,220,2528,2528,648
+completeness_score,2465,2466,855,2528,10000,2466
+log_purchase_amount,600,2466,219,648,2466,2466

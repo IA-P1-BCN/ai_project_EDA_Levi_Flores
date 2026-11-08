@@ -1,4 +1,4 @@
-"""Quantitative univariate, bivariate, KPI, outlier, and aggregation functions (E4-E6, M2, M3).
+"""Quantitative univariate, bivariate, KPI, outlier, correlation, and temporal functions (E4-E6, M2-M6).
 
 Provides pure, deterministic statistical functions operating on cleaned and enriched customer
 datasets (``data/processed/customers_*.csv``) in strict compliance with ``specs/ontology.md``
@@ -1413,6 +1413,894 @@ def build_m3_reachability_spend_tier_pivot(df_enriched: pd.DataFrame) -> pd.Data
     return pd.DataFrame(rows)
 
 
+M5_CORRELATION_VARIABLES: tuple[str, ...] = (
+    "age",
+    "purchase_amount",
+    "customer_tenure_days",
+    "feedback_score_1_to_5",
+    "completeness_score",
+    "log_purchase_amount",
+)
+
+M5_VARIABLE_RATIONALE: dict[str, str] = {
+    "age": "Continuous demographic driver with 2,465 valid rows (24.65% coverage) after -5/200 sentinels -> NaN.",
+    "purchase_amount": "Primary commercial outcome with 2,466 valid rows (24.66% coverage); -999/'N/A' -> NaN.",
+    "customer_tenure_days": "Lifecycle duration, 855 chronologically valid rows (829 inverted pairs excluded).",
+    "feedback_score_1_to_5": (
+        "Clean Likert satisfaction with 2,528 valid rows; the 2,521 off-scale 10 ratings are excluded "
+        "because the raw feedback_score scale mixes 1-5 with 10."
+    ),
+    "completeness_score": "Record-level data-quality ratio available for all 10,000 rows (0.0-1.0).",
+    "log_purchase_amount": (
+        "Variance-stabilizing np.log1p(purchase_amount) transform (2,466 rows); a deterministic monotone "
+        "function of purchase_amount, therefore reported only as a collinearity/transformation check."
+    ),
+}
+
+M5_TRANSFORMATION_PAIRS: tuple[tuple[str, str], ...] = (("purchase_amount", "log_purchase_amount"),)
+
+M5_STRENGTH_BANDS: tuple[tuple[float, str], ...] = (
+    (0.10, "negligible"),
+    (0.30, "weak"),
+    (0.50, "moderate"),
+    (0.70, "strong"),
+    (float("inf"), "very strong"),
+)
+
+M6_DATE_EXCLUSION_NOTE: str = (
+    "Temporal series are built from single-date fields: NaT signup/last-purchase dates (from "
+    "'not_a_date'/'missing' sentinels and blanks) are excluded, while the 829 is_date_inverted rows are "
+    "retained because each individual date is valid. Inverted pairs are excluded only from dual-date "
+    "metrics (customer_tenure_days, KPI-5); dropping them from single-date series would systematically "
+    "discard late signups and early last purchases and fabricate a spurious trend. Pairwise/cohort n is "
+    "always reported."
+)
+
+M6_SIGNUP_MONTH_FORMAT: str = "%Y-%m"
+
+
+def _r6(value: float) -> float:
+    """Round float to 6 decimal places and normalize IEEE-754 negative zero (-0.0 -> 0.0)."""
+    return round(float(value), 6) + 0.0
+
+
+def _correlation_strength(abs_value: float) -> str:
+    """Classify an absolute correlation coefficient into a conventional strength band."""
+    if pd.isna(abs_value):
+        return "undefined"
+    for upper_bound, label in M5_STRENGTH_BANDS:
+        if abs_value < upper_bound:
+            return label
+    return "very strong"
+
+
+def _correlation_direction(coefficient: float) -> str:
+    """Return the sign label of a correlation coefficient."""
+    if pd.isna(coefficient):
+        return "undefined"
+    if coefficient > 0.0:
+        return "positive"
+    if coefficient < 0.0:
+        return "negative"
+    return "none"
+
+
+def _resolve_m5_series(df_enriched: pd.DataFrame) -> dict[str, pd.Series]:
+    """Resolve the six M5 correlation variables as float64 series, reading shipped features when present.
+
+    ``log_purchase_amount`` falls back to ``np.log1p(purchase_amount).round(6)`` so the function also
+    works on the 21-column ``v2`` schema. Raw ``feedback_score`` (1-5 mixed with the 10 spike) and
+    identifier/date columns are deliberately never included.
+    """
+    log_series = (
+        df_enriched["log_purchase_amount"].astype("float64")
+        if "log_purchase_amount" in df_enriched.columns
+        else np.log1p(df_enriched["purchase_amount"].astype("float64")).round(6)
+    )
+    return {
+        "age": df_enriched["age"].astype("float64"),
+        "purchase_amount": df_enriched["purchase_amount"].astype("float64"),
+        "customer_tenure_days": _derive_tenure_days(df_enriched),
+        "feedback_score_1_to_5": _derive_feedback_1_to_5(df_enriched),
+        "completeness_score": _derive_completeness_score(df_enriched),
+        "log_purchase_amount": log_series.astype("float64"),
+    }
+
+
+def _pairwise_correlation_stats(x_series: pd.Series, y_series: pd.Series) -> dict[str, object]:
+    """Compute Pearson r and Spearman rho with two-sided p-values on complete pairs only."""
+    valid = pd.DataFrame({"x": x_series, "y": y_series}).dropna()
+    n_pair = len(valid)
+
+    if n_pair >= 3 and valid["x"].nunique() > 1 and valid["y"].nunique() > 1:
+        pearson_res = stats.pearsonr(valid["x"], valid["y"])
+        spearman_res = stats.spearmanr(valid["x"], valid["y"])
+        return {
+            "n_pair": n_pair,
+            "pearson_r": _r4(float(pearson_res.statistic)),
+            "pearson_p": _r6(float(pearson_res.pvalue)),
+            "spearman_rho": _r4(float(spearman_res.statistic)),
+            "spearman_p": _r6(float(spearman_res.pvalue)),
+        }
+
+    return {
+        "n_pair": n_pair,
+        "pearson_r": np.nan,
+        "pearson_p": np.nan,
+        "spearman_rho": np.nan,
+        "spearman_p": np.nan,
+    }
+
+
+def compute_correlation_matrices(df_enriched: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Build M5 Pearson r, Spearman rho, and pairwise-n matrices across the six analytical variables.
+
+    Variable selection (``M5_CORRELATION_VARIABLES``) is restricted to analytics-ready numeric or
+    engineered columns with documented ontology definitions; identifiers, raw dates, and the raw
+    ``feedback_score`` (1-5 mixed with the off-scale 10) are excluded by design. Every cell is
+    computed on complete pairwise observations only, so off-diagonal ``n_pair`` differs per pair.
+    """
+    series_map = _resolve_m5_series(df_enriched)
+    variables = list(M5_CORRELATION_VARIABLES)
+
+    pearson = pd.DataFrame(np.nan, index=variables, columns=variables, dtype="float64")
+    spearman = pd.DataFrame(np.nan, index=variables, columns=variables, dtype="float64")
+    n_pair = pd.DataFrame(0, index=variables, columns=variables, dtype="int64")
+
+    for var in variables:
+        n_valid = int(series_map[var].notna().sum())
+        pearson.loc[var, var] = 1.0
+        spearman.loc[var, var] = 1.0
+        n_pair.loc[var, var] = n_valid
+
+    for i, var_x in enumerate(variables):
+        for var_y in variables[i + 1:]:
+            cell = _pairwise_correlation_stats(series_map[var_x], series_map[var_y])
+            pearson.loc[var_x, var_y] = pearson.loc[var_y, var_x] = cell["pearson_r"]
+            spearman.loc[var_x, var_y] = spearman.loc[var_y, var_x] = cell["spearman_rho"]
+            n_pair.loc[var_x, var_y] = n_pair.loc[var_y, var_x] = int(cell["n_pair"])
+
+    pearson.index.name = spearman.index.name = n_pair.index.name = "variable"
+    return {"pearson": pearson, "spearman": spearman, "n_pair": n_pair}
+
+
+def _is_transformation_pair(var_x: str, var_y: str) -> bool:
+    """Return True when the pair is the documented purchase_amount -> log_purchase_amount transform."""
+    return (var_x, var_y) in M5_TRANSFORMATION_PAIRS or (var_y, var_x) in M5_TRANSFORMATION_PAIRS
+
+
+def compute_correlation_pairwise_tests(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Tabulate M5 unique-variable pairs with n, Pearson r, Spearman rho, p-values and interpretation.
+
+    Coefficients describe statistical association only and are never framed as causal effects.
+    The ``purchase_amount`` x ``log_purchase_amount`` row is flagged as a monotone transformation
+    check (``is_monotone_transform=True``) instead of an independent empirical finding.
+    """
+    series_map = _resolve_m5_series(df_enriched)
+    variables = list(M5_CORRELATION_VARIABLES)
+
+    rows: list[dict[str, object]] = []
+    for i, var_x in enumerate(variables):
+        for var_y in variables[i + 1:]:
+            cell = _pairwise_correlation_stats(series_map[var_x], series_map[var_y])
+            r_val = float(cell["pearson_r"])
+            rho_val = float(cell["spearman_rho"])
+            p_r = float(cell["pearson_p"])
+            p_rho = float(cell["spearman_p"])
+            is_transform = _is_transformation_pair(var_x, var_y)
+            significant = bool(
+                (not pd.isna(p_r) and p_r < 0.05) or (not pd.isna(p_rho) and p_rho < 0.05)
+            )
+            abs_candidates = [abs(v) for v in (r_val, rho_val) if pd.notna(v)]
+            stronger = max(abs_candidates) if abs_candidates else np.nan
+
+            if is_transform:
+                interpretation = (
+                    f"Collinearity/transformation check only: Pearson r={r_val:+.4f}, Spearman rho={rho_val:+.4f} "
+                    f"across n={cell['n_pair']:,} valid pairs (p<0.000001) confirm log1p is a deterministic "
+                    "monotone rescaling of purchase_amount, not an independent association."
+                )
+            else:
+                sig_text = "statistically significant at alpha=0.05" if significant else (
+                    "not statistically significant at alpha=0.05"
+                )
+                interpretation = (
+                    f"{_correlation_strength(float(stronger)).capitalize()} "
+                    f"{_correlation_direction(r_val)} linear association "
+                    f"(r={r_val:+.4f}, p={p_r:.6f}) and rank association (rho={rho_val:+.4f}, p={p_rho:.6f}) "
+                    f"across n={cell['n_pair']:,} valid pairs; {sig_text}."
+                )
+
+            rows.append(
+                {
+                    "variable_x": var_x,
+                    "variable_y": var_y,
+                    "n_pair": int(cell["n_pair"]),
+                    "pearson_r": r_val,
+                    "pearson_p": p_r,
+                    "spearman_rho": rho_val,
+                    "spearman_p": p_rho,
+                    "pearson_significant_at_0_05": bool(pd.notna(p_r) and p_r < 0.05),
+                    "spearman_significant_at_0_05": bool(pd.notna(p_rho) and p_rho < 0.05),
+                    "abs_pearson_r": _r4(abs(r_val)) if pd.notna(r_val) else np.nan,
+                    "abs_spearman_rho": _r4(abs(rho_val)) if pd.notna(rho_val) else np.nan,
+                    "pearson_strength_label": _correlation_strength(abs(r_val) if pd.notna(r_val) else np.nan),
+                    "spearman_strength_label": _correlation_strength(abs(rho_val) if pd.notna(rho_val) else np.nan),
+                    "direction": _correlation_direction(r_val),
+                    "is_monotone_transform": is_transform,
+                    "interpretation": interpretation,
+                }
+            )
+
+    result = pd.DataFrame(rows)
+    result["n_pair"] = result["n_pair"].astype("Int64")
+    return result
+
+
+def compute_correlation_matrix_long(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Flatten the M5 matrices into an ordered long table consumed by the correlation heatmap."""
+    matrices = compute_correlation_matrices(df_enriched)
+    pearson, spearman, n_pair = matrices["pearson"], matrices["spearman"], matrices["n_pair"]
+
+    rows: list[dict[str, object]] = []
+    for var_x in M5_CORRELATION_VARIABLES:
+        for var_y in M5_CORRELATION_VARIABLES:
+            rows.append(
+                {
+                    "variable_x": var_x,
+                    "variable_y": var_y,
+                    "n_pair": int(n_pair.loc[var_x, var_y]),
+                    "pearson_r": _r4(float(pearson.loc[var_x, var_y])),
+                    "spearman_rho": _r4(float(spearman.loc[var_x, var_y])),
+                    "is_diagonal": var_x == var_y,
+                    "is_monotone_transform": _is_transformation_pair(var_x, var_y),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def compute_correlation_highlights(pairwise_tests: pd.DataFrame, top_n: int = 5) -> pd.DataFrame:
+    """Return the strongest M5 associations by absolute coefficient, excluding transform checks.
+
+    Excludes self-pairs and the deterministic ``purchase_amount`` -> ``log_purchase_amount``
+    transformation row so the ranking reports only independent empirical associations.
+    """
+    candidates = pairwise_tests[~pairwise_tests["is_monotone_transform"]].copy()
+    candidates["max_abs_coefficient"] = candidates[["abs_pearson_r", "abs_spearman_rho"]].max(axis=1)
+    ranked = candidates.sort_values(
+        ["max_abs_coefficient", "variable_x", "variable_y"],
+        ascending=[False, True, True],
+        kind="mergesort",
+    ).head(top_n).reset_index(drop=True)
+
+    ranked.insert(0, "rank", np.arange(1, len(ranked) + 1))
+    ranked["max_abs_coefficient"] = ranked["max_abs_coefficient"].round(4) + 0.0
+    return ranked.loc[
+        :,
+        [
+            "rank",
+            "variable_x",
+            "variable_y",
+            "n_pair",
+            "pearson_r",
+            "pearson_p",
+            "spearman_rho",
+            "spearman_p",
+            "max_abs_coefficient",
+            "pearson_strength_label",
+            "spearman_strength_label",
+            "direction",
+            "interpretation",
+        ],
+    ]
+
+
+def build_m6_date_coverage_audit(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Quantify M6 temporal coverage and explicitly state every date exclusion rule.
+
+    Every temporal series in ``m6_*`` excludes NaT dates and the 829 ``is_date_inverted`` rows;
+    this audit reports numerator, denominator, share, and the exclusion rule per metric.
+    """
+    n_total = len(df_enriched)
+    signup = df_enriched["signup_date"]
+    last_purchase = df_enriched["last_purchase_date"]
+    is_inverted = _derive_is_date_inverted(df_enriched)
+
+    both_dates_mask = signup.notna() & last_purchase.notna()
+    n_signup = int(signup.notna().sum())
+    n_lastp = int(last_purchase.notna().sum())
+    n_both = int(both_dates_mask.sum())
+    n_inverted = int((both_dates_mask & is_inverted).sum())
+    n_chrono_valid = n_both - n_inverted
+    n_tenure = int(_derive_tenure_days(df_enriched).notna().sum())
+    n_tenure_missing_dates = n_total - n_tenure - n_inverted
+
+    signup_months = signup.dropna().dt.to_period("M")
+    lastp_months = last_purchase.dropna().dt.to_period("M")
+
+    rows: list[dict[str, object]] = [
+        {
+            "metric": "total_customers",
+            "n": n_total,
+            "base_n": n_total,
+            "pct_of_base": 100.0,
+            "rule_or_note": "Full enriched population (10,000 rows) used as the audit denominator.",
+        },
+        {
+            "metric": "signup_date_valid",
+            "n": n_signup,
+            "base_n": n_total,
+            "pct_of_base": _r4(n_signup / n_total * 100.0),
+            "rule_or_note": (
+                f"Parsed signup dates retained for cohort analysis; span {signup.min():%Y-%m-%d} to "
+                f"{signup.max():%Y-%m-%d} across {signup_months.nunique()} calendar months. Inverted pairs "
+                "are retained here because signup_date is individually valid."
+            ),
+        },
+        {
+            "metric": "signup_date_missing_nat",
+            "n": n_total - n_signup,
+            "base_n": n_total,
+            "pct_of_base": _r4((n_total - n_signup) / n_total * 100.0),
+            "rule_or_note": "Blank/'not_a_date' rows coerced to NaT in E3; excluded from all signup series.",
+        },
+        {
+            "metric": "last_purchase_date_valid",
+            "n": n_lastp,
+            "base_n": n_total,
+            "pct_of_base": _r4(n_lastp / n_total * 100.0),
+            "rule_or_note": (
+                f"Parsed last-purchase dates retained for activity analysis; span {last_purchase.min():%Y-%m-%d} to "
+                f"{last_purchase.max():%Y-%m-%d} across {lastp_months.nunique()} calendar months. Inverted pairs "
+                "are retained here because last_purchase_date is individually valid."
+            ),
+        },
+        {
+            "metric": "last_purchase_date_missing_nat",
+            "n": n_total - n_lastp,
+            "base_n": n_total,
+            "pct_of_base": _r4((n_total - n_lastp) / n_total * 100.0),
+            "rule_or_note": "Blank/'missing' rows coerced to NaT in E3; excluded from all activity series.",
+        },
+        {
+            "metric": "both_dates_valid",
+            "n": n_both,
+            "base_n": n_total,
+            "pct_of_base": _r4(n_both / n_total * 100.0),
+            "rule_or_note": "Rows with both dates present (KPI-5 denominator).",
+        },
+        {
+            "metric": "is_date_inverted_true",
+            "n": n_inverted,
+            "base_n": n_both,
+            "pct_of_base": _r4(n_inverted / n_both * 100.0) if n_both > 0 else np.nan,
+            "rule_or_note": (
+                "last_purchase_date < signup_date (KPI-5 anomaly): conditioned to NaN in customer_tenure_days "
+                "and excluded from KPI-5, but retained in standalone signup and last-purchase series to avoid "
+                "selection bias (see signup_rows_if_inverted_excluded)."
+            ),
+        },
+        {
+            "metric": "chronologically_valid_dual_dates",
+            "n": n_chrono_valid,
+            "base_n": n_both,
+            "pct_of_base": _r4(n_chrono_valid / n_both * 100.0) if n_both > 0 else np.nan,
+            "rule_or_note": "last_purchase_date >= signup_date (KPI-5 numerator); source of valid tenure.",
+        },
+        {
+            "metric": "customer_tenure_days_valid",
+            "n": n_tenure,
+            "base_n": n_total,
+            "pct_of_base": _r4(n_tenure / n_total * 100.0),
+            "rule_or_note": (
+                "Non-negative (last_purchase_date - signup_date) durations in days; identical to the "
+                "chronologically valid dual-date count by construction."
+            ),
+        },
+        {
+            "metric": "customer_tenure_days_excluded_inverted",
+            "n": n_inverted,
+            "base_n": n_total,
+            "pct_of_base": _r4(n_inverted / n_total * 100.0),
+            "rule_or_note": "Inverted pairs conditioned to NaN rather than sign-flipped.",
+        },
+        {
+            "metric": "customer_tenure_days_excluded_missing_dates",
+            "n": n_tenure_missing_dates,
+            "base_n": n_total,
+            "pct_of_base": _r4(n_tenure_missing_dates / n_total * 100.0),
+            "rule_or_note": "Rows missing at least one date; tenure left as NaN with no imputation.",
+        },
+        {
+            "metric": "signup_rows_if_inverted_excluded",
+            "n": n_signup - n_inverted,
+            "base_n": n_signup,
+            "pct_of_base": _r4((n_signup - n_inverted) / n_signup * 100.0) if n_signup > 0 else np.nan,
+            "rule_or_note": (
+                "Counterfactual audit (rejected): dropping inverted pairs from the single-date signup series "
+                "would discard 829 late signups and bias monthly signup volume downward (quantified as a "
+                "rejected sensitivity row in m6_trend_tests.csv), so inverted pairs stay in the signup series."
+            ),
+        },
+        {
+            "metric": "last_purchase_rows_if_inverted_excluded",
+            "n": n_lastp - n_inverted,
+            "base_n": n_lastp,
+            "pct_of_base": _r4((n_lastp - n_inverted) / n_lastp * 100.0) if n_lastp > 0 else np.nan,
+            "rule_or_note": (
+                "Counterfactual audit (rejected): dropping inverted pairs from the single-date activity series "
+                "would discard 829 early last purchases and bias monthly activity upward (quantified as a "
+                "rejected sensitivity row in m6_trend_tests.csv), so inverted pairs stay in the activity series."
+            ),
+        },
+        {
+            "metric": "temporal_series_exclusion_rule",
+            "n": n_total,
+            "base_n": n_total,
+            "pct_of_base": 100.0,
+            "rule_or_note": M6_DATE_EXCLUSION_NOTE,
+        },
+    ]
+    return pd.DataFrame(rows)
+
+
+def _signup_work_frame(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Build the M6 signup working frame from rows with a valid signup date.
+
+    Inverted pairs are retained because ``signup_date`` is individually valid; excluding them would
+    disproportionately drop late signups and fabricate a decline. Tenure stays NaN for those rows.
+    """
+    valid_mask = df_enriched["signup_date"].notna()
+    work = pd.DataFrame(
+        {
+            "customer_id": df_enriched["customer_id"],
+            "signup_date": df_enriched["signup_date"],
+            "purchase_amount": df_enriched["purchase_amount"].astype("float64"),
+            "customer_tenure_days": _derive_tenure_days(df_enriched),
+            "feedback_score_1_to_5": _derive_feedback_1_to_5(df_enriched),
+            "age": df_enriched["age"].astype("float64"),
+            "completeness_score": _derive_completeness_score(df_enriched),
+            "_is_reachable": (
+                df_enriched["has_valid_email"].astype(bool) | df_enriched["has_valid_phone"].astype(bool)
+            ).astype("float64"),
+            "_has_last_purchase": df_enriched["last_purchase_date"].notna().astype("float64"),
+        },
+        index=df_enriched.index,
+    )
+    work = work.loc[valid_mask].copy()
+    work["cohort_month"] = work["signup_date"].dt.to_period("M")
+    work["cohort_year"] = work["signup_date"].dt.year.astype("int64")
+    work["cohort_quarter"] = work["signup_date"].dt.quarter.astype("int64")
+    return work
+
+
+def _monthly_spend_block(grp: pd.DataFrame) -> dict[str, float | int]:
+    """Compute spend count/coverage/mean/median/total for one monthly or cohort cell."""
+    spend = grp["purchase_amount"].dropna()
+    n_valid = len(spend)
+    n_rows = len(grp)
+    total = float(spend.sum()) if n_valid > 0 else 0.0
+    return {
+        "n_valid_spend": n_valid,
+        "spend_coverage_pct": _r4(n_valid / n_rows * 100.0) if n_rows > 0 else np.nan,
+        "total_spend_usd": _r4(total),
+        "mean_spend_usd": _r4(float(spend.mean())) if n_valid > 0 else np.nan,
+        "median_spend_usd": _r4(float(spend.median())) if n_valid > 0 else np.nan,
+    }
+
+
+def build_m6_signup_cohorts_monthly(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate monthly signup cohorts with spend, tenure, reachability and completeness KPIs.
+
+    Grain: one row per calendar signup month (``YYYY-MM``), ordered ascending. NaT signup dates are
+    excluded while inverted date pairs are retained (``signup_date`` is individually valid), so
+    ``pct_of_dated_signups`` states each month's share of the 4,996 dated signups.
+    """
+    work = _signup_work_frame(df_enriched)
+    n_dated = len(work)
+
+    rows: list[dict[str, object]] = []
+    for month, grp in work.groupby("cohort_month", observed=True, sort=True):
+        n_signups = len(grp)
+        tenure = grp["customer_tenure_days"].dropna()
+        reachable = float(grp["_is_reachable"].mean()) if n_signups > 0 else np.nan
+        row: dict[str, object] = {
+            "cohort_month": month.strftime(M6_SIGNUP_MONTH_FORMAT),
+            "cohort_year": int(grp["cohort_year"].iloc[0]),
+            "cohort_quarter_label": str(month.asfreq("Q")),
+            "n_signups": n_signups,
+            "pct_of_dated_signups": _r4(n_signups / n_dated * 100.0) if n_dated > 0 else np.nan,
+        }
+        row.update(_monthly_spend_block(grp))
+        row.update(
+            {
+                "n_valid_tenure": len(tenure),
+                "mean_tenure_days": _r4(float(tenure.mean())) if len(tenure) > 0 else np.nan,
+                "reachable_pct": _r4(reachable * 100.0) if pd.notna(reachable) else np.nan,
+                "mean_completeness_score": _r4(float(grp["completeness_score"].mean())),
+            }
+        )
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def _activity_work_frame(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Build the M6 activity working frame from rows with a valid last-purchase date.
+
+    Inverted pairs are retained because ``last_purchase_date`` is individually valid; excluding them
+    would disproportionately drop early purchases and fabricate an upward activity trend.
+    """
+    valid_mask = df_enriched["last_purchase_date"].notna()
+    work = pd.DataFrame(
+        {
+            "customer_id": df_enriched["customer_id"],
+            "last_purchase_date": df_enriched["last_purchase_date"],
+            "purchase_amount": df_enriched["purchase_amount"].astype("float64"),
+            "customer_tenure_days": _derive_tenure_days(df_enriched),
+            "completeness_score": _derive_completeness_score(df_enriched),
+            "_is_reachable": (
+                df_enriched["has_valid_email"].astype(bool) | df_enriched["has_valid_phone"].astype(bool)
+            ).astype("float64"),
+        },
+        index=df_enriched.index,
+    )
+    work = work.loc[valid_mask].copy()
+    work["activity_month"] = work["last_purchase_date"].dt.to_period("M")
+    work["activity_year"] = work["last_purchase_date"].dt.year.astype("int64")
+    return work
+
+
+def build_m6_last_purchase_monthly(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate monthly last-purchase activity with spend profile and lifecycle context.
+
+    Grain: one row per calendar activity month (``YYYY-MM``), ordered ascending. NaT last-purchase
+    dates are excluded; inverted date pairs are retained because ``last_purchase_date`` is
+    individually valid. ``pct_of_dated_last_purchases`` states the share of the valid pool.
+    """
+    work = _activity_work_frame(df_enriched)
+    n_dated = len(work)
+
+    rows: list[dict[str, object]] = []
+    for month, grp in work.groupby("activity_month", observed=True, sort=True):
+        n_activity = len(grp)
+        tenure = grp["customer_tenure_days"].dropna()
+        row: dict[str, object] = {
+            "activity_month": month.strftime(M6_SIGNUP_MONTH_FORMAT),
+            "activity_year": int(grp["activity_year"].iloc[0]),
+            "n_purchases": n_activity,
+            "pct_of_dated_last_purchases": _r4(n_activity / n_dated * 100.0) if n_dated > 0 else np.nan,
+        }
+        row.update(_monthly_spend_block(grp))
+        row.update(
+            {
+                "n_valid_tenure": len(tenure),
+                "mean_tenure_days": _r4(float(tenure.mean())) if len(tenure) > 0 else np.nan,
+                "reachable_pct": _r4(float(grp["_is_reachable"].mean()) * 100.0),
+            }
+        )
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def build_m6_cohort_evolution_summary(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Compare ordered signup-year cohorts on spend, tenure, satisfaction, reachability and data quality.
+
+    Grain: one row per signup year, ordered ascending. Inverted pairs are retained in the cohort but
+    contribute NaN tenure; ``mean_observation_window_days`` is
+    ``max(last_purchase_date) - mean(signup_date)`` for the cohort, so ``tenure_to_window_ratio``
+    shows whether declining tenure reflects behaviour or right-censoring of the observation window.
+    """
+    work = _signup_work_frame(df_enriched)
+    n_dated = len(work)
+    observation_end = df_enriched["last_purchase_date"].max()
+    years_present = sorted(int(y) for y in work["cohort_year"].unique())
+    first_year, last_year = years_present[0], years_present[-1]
+
+    rows: list[dict[str, object]] = []
+    for year, grp in work.groupby("cohort_year", observed=True, sort=True):
+        n_signups = len(grp)
+        spend = grp["purchase_amount"].dropna()
+        tenure = grp["customer_tenure_days"].dropna()
+        feedback = grp["feedback_score_1_to_5"].dropna()
+        age = grp["age"].dropna()
+
+        if len(tenure) > 0:
+            tq1, tmed, tq3 = (float(v) for v in tenure.quantile([0.25, 0.50, 0.75]))
+            mean_tenure = float(tenure.mean())
+        else:
+            tq1 = tmed = tq3 = mean_tenure = np.nan
+        observation_window = float((observation_end - grp["signup_date"].mean()).days)
+        tenure_to_window = (mean_tenure / observation_window) if observation_window > 0 else np.nan
+
+        row: dict[str, object] = {
+            "signup_year": int(year),
+            "is_partial_year": bool(int(year) in (first_year, last_year)),
+            "n_signups": n_signups,
+            "pct_of_dated_signups": _r4(n_signups / n_dated * 100.0) if n_dated > 0 else np.nan,
+            "n_valid_spend": len(spend),
+            "spend_coverage_pct": _r4(len(spend) / n_signups * 100.0) if n_signups > 0 else np.nan,
+            "total_spend_usd": _r4(float(spend.sum())) if len(spend) > 0 else 0.0,
+            "mean_spend_usd": _r4(float(spend.mean())) if len(spend) > 0 else np.nan,
+            "median_spend_usd": _r4(float(spend.median())) if len(spend) > 0 else np.nan,
+            "n_valid_tenure": len(tenure),
+            "mean_tenure_days": _r4(mean_tenure) if pd.notna(mean_tenure) else np.nan,
+            "median_tenure_days": _r4(tmed) if pd.notna(tmed) else np.nan,
+            "q1_tenure_days": _r4(tq1) if pd.notna(tq1) else np.nan,
+            "q3_tenure_days": _r4(tq3) if pd.notna(tq3) else np.nan,
+            "iqr_tenure_days": _r4(tq3 - tq1) if pd.notna(tq1) else np.nan,
+            "mean_observation_window_days": _r4(observation_window),
+            "tenure_to_window_ratio": _r4(tenure_to_window) if pd.notna(tenure_to_window) else np.nan,
+            "pct_with_valid_last_purchase": _r4(float(grp["_has_last_purchase"].mean()) * 100.0),
+            "n_valid_feedback": len(feedback),
+            "mean_feedback_1_to_5": _r4(float(feedback.mean())) if len(feedback) > 0 else np.nan,
+            "n_valid_age": len(age),
+            "mean_age_years": _r4(float(age.mean())) if len(age) > 0 else np.nan,
+            "reachable_pct": _r4(float(grp["_is_reachable"].mean()) * 100.0),
+            "mean_completeness_score": _r4(float(grp["completeness_score"].mean())),
+        }
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def build_m6_signup_quarter_evolution(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate ordered signup-year x calendar-quarter cohorts (finer M6 group evolution grain).
+
+    Grain: one row per ``YYYY-Qn`` signup quarter, ordered chronologically. NaT signup dates are
+    excluded while inverted date pairs are retained; partial quarters at the dataset edges are flagged.
+    """
+    work = _signup_work_frame(df_enriched)
+    n_dated = len(work)
+    quarter_label = work["signup_date"].dt.to_period("Q").astype(str)
+    work = work.assign(quarter_label=quarter_label)
+    sorted_labels = sorted(work["quarter_label"].unique())
+    edge_labels = {sorted_labels[0], sorted_labels[-1]}
+
+    rows: list[dict[str, object]] = []
+    for label in sorted_labels:
+        grp = work.loc[work["quarter_label"] == label]
+        n_signups = len(grp)
+        tenure = grp["customer_tenure_days"].dropna()
+        row: dict[str, object] = {
+            "signup_quarter": label,
+            "signup_year": int(grp["cohort_year"].iloc[0]),
+            "quarter": int(grp["cohort_quarter"].iloc[0]),
+            "is_partial_quarter": label in edge_labels,
+            "n_signups": n_signups,
+            "pct_of_dated_signups": _r4(n_signups / n_dated * 100.0) if n_dated > 0 else np.nan,
+        }
+        row.update(_monthly_spend_block(grp))
+        row.update(
+            {
+                "n_valid_tenure": len(tenure),
+                "mean_tenure_days": _r4(float(tenure.mean())) if len(tenure) > 0 else np.nan,
+                "reachable_pct": _r4(float(grp["_is_reachable"].mean()) * 100.0),
+                "mean_completeness_score": _r4(float(grp["completeness_score"].mean())),
+            }
+        )
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def compute_m6_trend_tests(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Test each M6 temporal series for a monotone trend with Spearman rho against the time index.
+
+    A rank correlation between period order and the period metric is used as a distribution-free
+    trend statistic (H0: no monotone trend). Results describe association over time, never causation.
+    """
+    signup_work = _signup_work_frame(df_enriched)
+    activity_work = _activity_work_frame(df_enriched)
+
+    monthly_signups = signup_work.groupby("cohort_month", observed=True, sort=True).size().astype("float64")
+    monthly_activity = (
+        activity_work.groupby("activity_month", observed=True, sort=True)
+        .agg(n=("customer_id", "count"), mean_spend=("purchase_amount", "mean"))
+    )
+    quarterly_spend = (
+        activity_work.assign(quarter=activity_work["last_purchase_date"].dt.to_period("Q"))
+        .groupby("quarter", observed=True, sort=True)
+        .agg(mean_spend=("purchase_amount", "mean"))
+    )
+    cohort_tenure = build_m6_cohort_evolution_summary(df_enriched)
+    cohort_tenure = cohort_tenure.loc[cohort_tenure["n_valid_tenure"] >= 30].reset_index(drop=True)
+
+    # Sensitivity checks: reject the inverted-row filter on single-date series (selection bias).
+    is_inverted = _derive_is_date_inverted(df_enriched)
+    signup_no_inverted = (
+        df_enriched.loc[df_enriched["signup_date"].notna() & (~is_inverted), "signup_date"]
+        .dt.to_period("M")
+        .value_counts()
+        .sort_index()
+        .astype("float64")
+    )
+    activity_no_inverted = (
+        df_enriched.loc[df_enriched["last_purchase_date"].notna() & (~is_inverted), "last_purchase_date"]
+        .dt.to_period("M")
+        .value_counts()
+        .sort_index()
+        .astype("float64")
+    )
+
+    series_specs: list[tuple[str, str, pd.Series, str, bool]] = [
+        (
+            "monthly_signup_volume",
+            "month",
+            monthly_signups,
+            "Monthly count of valid signup dates across the dated signup pool.",
+            False,
+        ),
+        (
+            "monthly_last_purchase_activity",
+            "month",
+            monthly_activity["n"].astype("float64"),
+            "Monthly count of valid last-purchase dates (transaction recency proxy).",
+            False,
+        ),
+        (
+            "monthly_mean_spend",
+            "month",
+            monthly_activity["mean_spend"].dropna(),
+            "Monthly mean purchase_amount among valid orders attributable to that activity month.",
+            False,
+        ),
+        (
+            "quarterly_mean_spend",
+            "quarter",
+            quarterly_spend["mean_spend"].dropna(),
+            "Quarterly mean purchase_amount, smoothing month-to-month sampling noise.",
+            False,
+        ),
+        (
+            "cohort_year_mean_tenure",
+            "year",
+            cohort_tenure.set_index("signup_year")["mean_tenure_days"].astype("float64"),
+            "Signup-year cohort mean customer_tenure_days (cohorts with n>=30 valid tenures only).",
+            False,
+        ),
+        (
+            "monthly_signup_volume_inverted_excluded_sensitivity",
+            "month",
+            signup_no_inverted,
+            (
+                "Sensitivity check (rejected): dropping the 829 inverted pairs from the single-date signup "
+                "series discards disproportionately late signups and manufactures a decline; the series is "
+                "therefore not used for M6 conclusions."
+            ),
+            True,
+        ),
+        (
+            "monthly_last_purchase_activity_inverted_excluded_sensitivity",
+            "month",
+            activity_no_inverted,
+            (
+                "Sensitivity check (rejected): dropping the 829 inverted pairs from the single-date activity "
+                "series discards disproportionately early last purchases and manufactures an increase; the "
+                "series is therefore not used for M6 conclusions."
+            ),
+            True,
+        ),
+    ]
+
+    rows: list[dict[str, object]] = []
+    for series_name, grain, values, note, is_sensitivity in series_specs:
+        clean = values.dropna()
+        n_points = len(clean)
+        if n_points >= 3 and clean.nunique() > 1:
+            result = stats.spearmanr(np.arange(n_points, dtype="float64"), clean.to_numpy(dtype="float64"))
+            rho_val, p_val = _r4(float(result.statistic)), _r6(float(result.pvalue))
+            significant = bool(result.pvalue < 0.05)
+        else:
+            rho_val = p_val = np.nan
+            significant = False
+
+        if pd.isna(rho_val):
+            trend_label = "insufficient_points"
+        elif not significant:
+            trend_label = "no_monotone_trend_at_0_05"
+        elif rho_val > 0:
+            trend_label = "monotone_increase_at_0_05"
+        else:
+            trend_label = "monotone_decrease_at_0_05"
+
+        index_labels = [str(idx) for idx in clean.index]
+        rows.append(
+            {
+                "series": series_name,
+                "grain": grain,
+                "n_points": n_points,
+                "start_period": index_labels[0] if index_labels else "",
+                "end_period": index_labels[-1] if index_labels else "",
+                "spearman_rho_vs_time_index": rho_val,
+                "p_value": p_val,
+                "significant_at_0_05": significant,
+                "trend_label": trend_label,
+                "is_sensitivity_check": is_sensitivity,
+                "interpretation": (
+                    f"Spearman rho={rho_val:+.4f} (p={p_val:.6f}) across {n_points} ordered {grain} points; "
+                    f"{trend_label}. {note}"
+                )
+                if pd.notna(rho_val)
+                else f"Not enough variation across {n_points} points to test a monotone trend. {note}",
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def _load_enriched_for_exports() -> pd.DataFrame:
+    """Load ``customers_enriched_v1.csv`` when present, else rebuild it from the v2 cleaned dataset."""
+    from src.features import engineer_features, load_enriched_customers
+
+    enriched_csv = PROCESSED_DIR / "customers_enriched_v1.csv"
+    if enriched_csv.exists():
+        return load_enriched_customers("v1")
+    return engineer_features(load_clean_customers("v2"))
+
+
+def export_m5_summaries(
+    df_enriched: pd.DataFrame | None = None,
+    output_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Generate and write the six M5 correlation CSV artifacts deterministically."""
+    enriched_df = _load_enriched_for_exports() if df_enriched is None else df_enriched
+    target_dir = SUMMARIES_DIR if output_dir is None else output_dir
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    matrices = compute_correlation_matrices(enriched_df)
+    pairwise_tests = compute_correlation_pairwise_tests(enriched_df)
+
+    written: dict[str, Path] = {}
+    for filename, matrix in (
+        ("m5_correlation_pearson.csv", matrices["pearson"]),
+        ("m5_correlation_spearman.csv", matrices["spearman"]),
+        ("m5_correlation_pairwise_n.csv", matrices["n_pair"]),
+    ):
+        out_path = target_dir / filename
+        matrix.to_csv(out_path, index=True, index_label="variable")
+        written[filename] = out_path
+
+    flat_tables: dict[str, pd.DataFrame] = {
+        "m5_correlation_matrix_long.csv": compute_correlation_matrix_long(enriched_df),
+        "m5_correlation_pairwise_tests.csv": pairwise_tests,
+        "m5_correlation_highlights.csv": compute_correlation_highlights(pairwise_tests),
+    }
+    for filename, table in flat_tables.items():
+        out_path = target_dir / filename
+        table.to_csv(out_path, index=False)
+        written[filename] = out_path
+
+    return written
+
+
+def export_m6_summaries(
+    df_enriched: pd.DataFrame | None = None,
+    output_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Generate and write the six M6 temporal-evolution CSV artifacts deterministically."""
+    enriched_df = _load_enriched_for_exports() if df_enriched is None else df_enriched
+    target_dir = SUMMARIES_DIR if output_dir is None else output_dir
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    artifacts: dict[str, pd.DataFrame] = {
+        "m6_date_coverage_audit.csv": build_m6_date_coverage_audit(enriched_df),
+        "m6_signup_cohorts_monthly.csv": build_m6_signup_cohorts_monthly(enriched_df),
+        "m6_last_purchase_monthly.csv": build_m6_last_purchase_monthly(enriched_df),
+        "m6_cohort_evolution_summary.csv": build_m6_cohort_evolution_summary(enriched_df),
+        "m6_signup_quarter_evolution.csv": build_m6_signup_quarter_evolution(enriched_df),
+        "m6_trend_tests.csv": compute_m6_trend_tests(enriched_df),
+    }
+
+    written: dict[str, Path] = {}
+    for filename, table in artifacts.items():
+        out_path = target_dir / filename
+        table.to_csv(out_path, index=False)
+        written[filename] = out_path
+    return written
+
+
 def export_m3_summaries(
     df_enriched: pd.DataFrame | None = None,
     output_dir: Path | None = None,
@@ -1497,5 +2385,7 @@ if __name__ == "__main__":
     exported_e = export_essential_summaries()
     exported_m2 = export_m2_summaries()
     exported_m3 = export_m3_summaries()
-    for name, path in {**exported_e, **exported_m2, **exported_m3}.items():
+    exported_m5 = export_m5_summaries()
+    exported_m6 = export_m6_summaries()
+    for name, path in {**exported_e, **exported_m2, **exported_m3, **exported_m5, **exported_m6}.items():
         print(f"Exported {name} -> {path}")
