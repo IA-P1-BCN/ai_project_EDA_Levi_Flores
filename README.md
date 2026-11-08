@@ -10,6 +10,19 @@ This project simulates a real-world data consulting engagement performing an end
 
 ---
 
+## 📑 Deliverables
+
+| Deliverable | Level | File |
+|---|---|---|
+| 📄 **CEO Executive Report** (1–2 pages, conclusions and supporting charts) | Medium (`M7`) | [**PDF**](reports/executive_report.pdf) · [Markdown](reports/executive_report.md) |
+| 📓 **EDA Notebook** (cleaning, analysis, charts, interpretations) | Essential → Medium | [`notebooks/01_eda_customers.ipynb`](notebooks/01_eda_customers.ipynb) |
+| 📊 **Charts** (300 DPI, named by task ID) | Essential → Medium | [`assets/charts/`](assets/charts/) |
+| 🧹 **Clean & enriched datasets** | Essential → Medium | [`data/processed/`](data/processed/) |
+
+> The PDF is generated from the Markdown source with `python scripts/export_report_pdf.py`, which fails if the report exceeds 2 pages.
+
+---
+
 ## 🗂️ Dataset Attribution & Metadata
 
 | Property | Details |
@@ -162,6 +175,8 @@ ai_project_EDA_Levi_Flores/
 │   └── 01_eda_customers.ipynb    # Core EDA notebook (Essential, Medium & Advanced levels)
 │
 ├── reports/                      # Data quality report, CEO report and presentation script
+│   ├── executive_report.md       # CEO executive report (M7), source of truth
+│   └── executive_report.pdf      # Same report as a 2-page PDF (scripts/export_report_pdf.py)
 ├── specs/                        # Domain specification
 │   ├── README.md                 # Spec index and change-control rules
 │   └── ontology.md               # Single source of truth: schema, flags, features, KPIs
