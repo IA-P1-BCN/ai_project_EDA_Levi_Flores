@@ -2,7 +2,7 @@
 
 Complete list of issues for the project, aligned with [`docs/Work_Plan.md`](../Work_Plan.md) and the project design in [`PROJECT_SETUP.md`](PROJECT_SETUP.md).
 
-**Total:** 28 task issues + 8 daily logs = **36 issues**.
+**Total:** 29 task issues (F1–F3, E1–E6, M1–M7, A1–A7, X1–X6) + 8 daily logs = **37 issues**, all tracked in Project `#54`.
 
 ---
 
@@ -39,7 +39,7 @@ Every issue in this repository follows a clean, executive Markdown layout featur
 |---|---|---|---|---|---|---|---|
 | F1 | `[F1] Repository and environment setup` | 2026-11-03 | `feature/project-setup-and-docs` | `task`, `level:foundation`, `area:setup` | ![M](https://img.shields.io/badge/M-2--4h-5319E7?style=flat-square) | ![P0](https://img.shields.io/badge/P0-red?style=flat-square) | Repository, Python 3.12 environment, CI and templates are ready. |
 | F2 | `[F2] Dataset research and work plan` | 2026-11-04 | `feature/work-plan-english` | `task`, `level:foundation`, `area:setup` | ![M](https://img.shields.io/badge/M-2--4h-5319E7?style=flat-square) | ![P0](https://img.shields.io/badge/P0-red?style=flat-square) | Dataset selected and `docs/Work_Plan.md` merged. |
-| F3 | `[F3] Multi-agent governance and skills setup` | 2026-11-05 | `feature/agents-and-ontology-setup` | `task`, `level:foundation`, `area:setup`, `area:engineering` | ![L](https://img.shields.io/badge/L-4--8h-0366d6?style=flat-square) | ![P0](https://img.shields.io/badge/P0-red?style=flat-square) | `AGENTS.md`, `specs/ontology.md` and `.agents/skills/` merged. |
+| F3 | `[F3] Multi-agent governance, domain ontology and skills setup` | 2026-11-05 | `feature/agents-and-ontology-setup` | `task`, `level:foundation`, `area:setup`, `area:engineering` | ![L](https://img.shields.io/badge/L-4--8h-0366d6?style=flat-square) | ![P0](https://img.shields.io/badge/P0-red?style=flat-square) | `AGENTS.md`, `specs/ontology.md` and `.agents/skills/` merged. |
 
 ---
 
@@ -99,7 +99,7 @@ Every issue in this repository follows a clean, executive Markdown layout featur
 
 ## Daily logs — no milestone (one per working day)
 
-Create the daily log at the start of each working day and close it at the end. Daily logs use the `daily` label and `Workstream = Management`; they do not need a branch.
+The eight daily logs were created up front. Every morning `project-sync.yml` moves today's log to `In Progress` and closes the earlier ones; the author adds the end-of-day update as a comment. Daily logs use the `daily` label and `Workstream = Management`; they do not need a branch.
 
 | ID | Issue title | Date | Labels | Est. | Done when |
 |---|---|---|---|---|---|
