@@ -23,7 +23,7 @@
 4. **Short-lived branches:** one branch per level or feature, maximum 1–2 days.
 5. **Squash merge + remote branch retention:** one clean commit per PR in `main`; the merged branch is deleted locally but **kept on GitHub** as the audit trail for the professor.
 
-> The current `README.md` still describes the old rule of keeping branches. It will be updated in `feature/01-data-loading-and-cleaning` to match this plan.
+> `README.md` was aligned with this rule in `feature/01-data-loading-and-cleaning`: local branches are deleted after merge, remote branches are kept.
 
 ---
 
