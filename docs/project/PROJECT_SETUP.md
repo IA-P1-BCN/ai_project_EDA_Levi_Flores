@@ -103,7 +103,7 @@ The project has **four views** — two dedicated to development tasks (`Issues B
 | Columns | `Backlog` → `Ready` → `In Progress` → `Blocked` → `In Review` → `Done` |
 | Sort | `Priority` (P0 first), then `Target date` (oldest first) |
 | Card fields | `Title`, `Status`, `Task ID`, `Level`, `Priority`, `Estimate`, `Target date`, `Branch`, `Pull Request`, `Assignees`, `Milestone`, `Labels` |
-| WIP limits | `Ready`: 3, `In Progress`: 1, `In Review`: 1 |
+| WIP limits | `Ready`: 7, `In Progress`: 7, `In Review`: 7 (one delivery block at a time; the largest block, `A1–A7`, has 7 tasks) |
 
 **Column meaning**
 
@@ -111,7 +111,7 @@ The project has **four views** — two dedicated to development tasks (`Issues B
 |---|---|
 | `Backlog` | Captured but not ready to start. |
 | `Ready` | Fully specified, dependencies resolved, next in queue. |
-| `In Progress` | Branch open and work actively underway (maximum one task). |
+| `In Progress` | Branch open and work actively underway (maximum one delivery block, i.e. the tasks of one branch). |
 | `Blocked` | Cannot continue; the blocker must be described in the issue. |
 | `In Review` | Self-review and CI checks in progress. |
 | `Done` | PR squash-merged and issue closed (remote branch kept for audit). |
@@ -154,18 +154,28 @@ The project has **four views** — two dedicated to development tasks (`Issues B
 
 ---
 
-## 5. Recommended workflows
+## 5. Automation
 
-Enable these built-in workflows in **Project → Workflows**:
+`Status` follows the Pull Request automatically. `.github/workflows/project-sync.yml` (script `.github/scripts/project_sync.py`, secret `PROJECT_TOKEN`) updates every issue linked with `Closes #<N>`:
+
+| Event | Task issue | Daily log |
+|---|---|---|
+| Draft PR opened | `In Progress` + `Branch` + `Pull Request` | — |
+| PR ready for review | `In Review` | — |
+| PR squash-merged into `main` | `Done` (GitHub closes the issue) | Merge recorded as a comment on that day's log |
+| PR closed without merge | `In Progress` | — |
+| Every morning (06:00 Madrid) | — | Today's log → `In Progress`; earlier open logs → `Done` and closed |
+
+These built-in workflows are enabled in **Project → Workflows** as a second layer:
 
 | Workflow | Action |
 |---|---|
-| Auto-add to project | Add every issue from this repository to the project. |
 | Item added to project | Set `Status` to `Backlog`. |
-| Issue closed | Set `Status` to `Done`. |
-| Pull request merged | Set `Status` to `Done` for linked issues. |
+| Item reopened | Set `Status` back from `Done`. |
+| Item closed | Set `Status` to `Done`. |
+| Auto-close issue | Close the issue when its item reaches `Done`. |
 
-Status changes during the day are manual so the board reflects reality (one task in `In Progress` at a time).
+Only two `Status` changes are manual: `Backlog` → `Ready` when a block is next in line, and `Blocked` when work cannot continue. Never edit `Status`, `Branch` or `Pull Request` by hand while a PR is open; only if the `Project Sync (#54)` run warns that `PROJECT_TOKEN` is missing (see `.agents/skills/pr-self-review/SKILL.md` §3.1).
 
 ---
 
@@ -187,30 +197,29 @@ Status changes during the day are manual so the board reflects reality (one task
 
 ## 7. Daily routine
 
+The eight daily logs (`D1–D8`) already exist; do not create new ones.
+
 **Start of day**
 
-1. Create the daily log issue with the **Daily Log** template (`[DAILY] YYYY-MM-DD`).
-2. Set `Date`, `Day`, `Task ID`, `Workstream` (`Management`) and `Target date`; add it to the project.
-3. Write the plan for the day and link the task IDs that will be worked on.
+1. The morning run moves today's `[DAILY] YYYY-MM-DD` log to `In Progress` and closes the earlier ones.
+2. Check that the log's plan lists the task IDs of the day's delivery block.
 
 **During the day**
 
-1. Move the active task issue to `In Progress` and fill its `Branch` field.
-2. When the PR is opened, fill `Pull Request` and move the task to `In Review`.
-3. Record blockers immediately and link them from the task issue.
+1. Create the block's branch from an up-to-date `main` and open the PR with `Closes #<N>` for every task in the block. The automation fills `Branch` and `Pull Request` and moves the tasks to `In Progress` (draft) or `In Review` (ready).
+2. Record blockers immediately: move the task to `Blocked` and describe the blocker in the issue.
 
 **End of day**
 
-1. Complete the daily log: progress, decisions, blockers, branches and PRs, next-day focus.
-2. Update the status of every task issue touched during the day.
-3. Close the daily log issue only when the report is complete.
+1. After the squash-merge, add a daily update comment to the log: progress, AI agents used, decisions, blockers, branches and PRs, next-day focus.
+2. Leave the log open; the next morning's run closes it and marks it `Done`.
 
 ---
 
 ## 8. Conventions
 
 - **Issue title:** `[ID] Short description` for tasks and `[DAILY] YYYY-MM-DD` for daily logs.
-- **One task, one branch, one PR:** use the branch names defined in `docs/Work_Plan.md`.
+- **One delivery block, one branch, one PR:** use the branch names defined in `docs/Work_Plan.md` §5; the PR closes every task issue of the block. Repairs outside a block use `fix/`, `docs/`, `chore/` or `ci/` branches.
 - **PR linkage:** include `Closes #<issue-number>` in the PR description so the merge closes the issue.
 - **Merge policy:** the author self-reviews and squash-merges; the local branch is deleted afterwards and the remote branch is kept for audit.
 - **Project hygiene:** no task stays in `In Progress` without an open branch and an owner.
