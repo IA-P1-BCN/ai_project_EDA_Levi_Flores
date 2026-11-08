@@ -1,7 +1,7 @@
-"""Quantitative univariate, bivariate, and KPI synthesis functions for Essential EDA (E4-E6).
+"""Quantitative univariate, bivariate, KPI, outlier, and aggregation functions (E4-E6, M2, M3).
 
-Provides pure, deterministic statistical functions operating on cleaned customer datasets
-(``data/processed/customers_clean_*.csv``) in strict compliance with ``specs/ontology.md``
+Provides pure, deterministic statistical functions operating on cleaned and enriched customer
+datasets (``data/processed/customers_*.csv``) in strict compliance with ``specs/ontology.md``
 and ``.agents/skills/statistical-analysis/SKILL.md``.
 """
 
@@ -110,7 +110,32 @@ def load_clean_customers(version: str = "v1") -> pd.DataFrame:
         if flag_col in df.columns:
             df[flag_col] = df[flag_col].astype(bool)
 
+    for float_col in ("feedback_score_1_to_5", "completeness_score"):
+        if float_col in df.columns:
+            df[float_col] = pd.to_numeric(df[float_col], errors="coerce").astype("float64")
+
     return df
+
+
+def _derive_completeness_score(df: pd.DataFrame) -> pd.Series:
+    """Return record-level valid attribute proportion across the 12 core columns."""
+    if "completeness_score" in df.columns:
+        return df["completeness_score"].astype("float64")
+    valid_count = (
+        df["customer_id"].notna().astype(int)
+        + (df["name"].astype(str) != "Unknown").astype(int)
+        + (df["gender"].astype(str) != "Unknown").astype(int)
+        + df["age"].notna().astype(int)
+        + (df["city"].astype(str) != "Unknown").astype(int)
+        + df["signup_date"].notna().astype(int)
+        + df["last_purchase_date"].notna().astype(int)
+        + df["purchase_amount"].notna().astype(int)
+        + df["feedback_score"].notna().astype(int)
+        + df["email"].notna().astype(int)
+        + df["phone_number"].notna().astype(int)
+        + (df["country"].astype(str) != "Unknown").astype(int)
+    )
+    return (valid_count / 12.0).astype("float64").round(6)
 
 
 def _derive_is_date_inverted(df: pd.DataFrame) -> pd.Series:
@@ -800,6 +825,648 @@ def compute_research_question_kpis(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _r4(value: float) -> float:
+    """Round float to 4 decimal places and normalize IEEE-754 negative zero (-0.0 -> 0.0)."""
+    return round(float(value), 4) + 0.0
+
+
+def compute_iqr_outlier_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """Execute formal M2 Tukey IQR (1.5x and 3.0x) outlier audit across continuous and rating columns.
+
+    Separates Layer 1 ingestion sentinels (remediated to NaN in E3/M1) from Layer 2 statistical
+    domain outliers across ``age``, ``purchase_amount``, ``customer_tenure_days``,
+    ``feedback_score``, ``feedback_score_1_to_5``, and ``completeness_score``.
+    """
+    n_total = len(df)
+    specs: list[tuple[str, pd.Series, str, str, str]] = [
+        (
+            "age",
+            df["age"].astype("float64"),
+            "-5 (2,506 rows) and 200 (2,453 rows) -> NaN (4,959 sentinels + 2,576 blanks)",
+            "Retain all valid observations unclipped",
+            (
+                "0 Tukey (1.5xIQR) or extreme (3.0xIQR) outliers across [18, 70] yrs; "
+                "platykurtic adult spread makes capping destructive."
+            ),
+        ),
+        (
+            "purchase_amount",
+            df["purchase_amount"].astype("float64"),
+            "-999 (2,501 rows) and 'N/A' (2,533 rows) -> NaN (5,034 sentinels + 2,500 blanks)",
+            "Retain all valid observations unclipped",
+            (
+                "0 Tukey (1.5xIQR) or extreme (3.0xIQR) outliers across $10.31-$4,998.67; "
+                "upper tail represents genuine high-value orders."
+            ),
+        ),
+        (
+            "customer_tenure_days",
+            _derive_tenure_days(df),
+            "not_a_date (2,475), missing (3,366), and 829 inverted date pairs -> NaN",
+            "Retain valid chronological durations unclipped",
+            (
+                "0 Tukey (1.5xIQR) or extreme (3.0xIQR) outliers across 0-1,925 days (~5.27 yrs); "
+                "mild right skew (0.52) is natural lifecycle duration."
+            ),
+        ),
+        (
+            "feedback_score",
+            df["feedback_score"].astype("float64"),
+            "-1 (2,489 rows) -> NaN (+ 2,462 blanks); 2,521 off-scale 10s flagged via is_score_10_spike",
+            "Isolate 10-spike via is_score_10_spike + analyze clean Likert via feedback_score_1_to_5",
+            (
+                "0 formal Tukey outliers on raw valid [-7.50, 20.50] due to quartile masking "
+                "(49.93% at 10 shifts Q3 to 10.0), but 10 exceeds clean Likert upper fence (7.00)."
+            ),
+        ),
+        (
+            "feedback_score_1_to_5",
+            _derive_feedback_1_to_5(df),
+            "-1 (2,489 rows) and off-scale 10 (2,521 rows) -> NaN (+ 2,462 blanks)",
+            "Retain all clean 1-5 Likert ratings unclipped",
+            (
+                "0 Tukey (1.5xIQR: [-1.00, 7.00]) or extreme [-4.00, 10.00] outliers; "
+                "establishes true Likert upper fence (7.00) proving score 10 is a scale anomaly."
+            ),
+        ),
+        (
+            "completeness_score",
+            _derive_completeness_score(df),
+            "Derived row-quality ratio across 12 attributes after sentinel remediation",
+            "Retain all 10,000 account scores unclipped (audit low tail in A3/X4)",
+            (
+                "9 accounts (0.09%) with 2/12 valid fields (0.1667) fall below lower Tukey fence "
+                "(0.2500), 0 extreme outliers; retaining preserves exact N=10,000 KPI denominators."
+            ),
+        ),
+    ]
+
+    rows: list[dict[str, object]] = []
+    for var_name, series, sentinels_info, rule, justification in specs:
+        valid = series.dropna()
+        n_valid = len(valid)
+        missing_pct = ((n_total - n_valid) / n_total * 100.0) if n_total > 0 else np.nan
+
+        if n_valid == 0:
+            rows.append(
+                {
+                    "variable": var_name,
+                    "n_valid": 0,
+                    "missing_pct": round(missing_pct, 4),
+                    "mean": np.nan,
+                    "std": np.nan,
+                    "min": np.nan,
+                    "p01": np.nan,
+                    "q1": np.nan,
+                    "median": np.nan,
+                    "q3": np.nan,
+                    "p99": np.nan,
+                    "max": np.nan,
+                    "iqr": np.nan,
+                    "tukey_lower_fence": np.nan,
+                    "tukey_upper_fence": np.nan,
+                    "n_below_lower": 0,
+                    "n_above_upper": 0,
+                    "n_tukey_outliers": 0,
+                    "outlier_pct_of_valid": np.nan,
+                    "extreme_lower_fence": np.nan,
+                    "extreme_upper_fence": np.nan,
+                    "n_extreme_outliers": 0,
+                    "sentinels_removed_in_cleaning": sentinels_info,
+                    "treatment_rule": rule,
+                    "treatment_justification": justification,
+                }
+            )
+            continue
+
+        p01_v, q1_v, med_v, q3_v, p99_v = (float(v) for v in valid.quantile([0.01, 0.25, 0.50, 0.75, 0.99]))
+        iqr_v = q3_v - q1_v
+        low_fence = q1_v - 1.5 * iqr_v
+        high_fence = q3_v + 1.5 * iqr_v
+        ext_low = q1_v - 3.0 * iqr_v
+        ext_high = q3_v + 3.0 * iqr_v
+
+        n_below = int((valid < low_fence).sum())
+        n_above = int((valid > high_fence).sum())
+        n_out = n_below + n_above
+        n_ext = int(((valid < ext_low) | (valid > ext_high)).sum())
+
+        rows.append(
+            {
+                "variable": var_name,
+                "n_valid": n_valid,
+                "missing_pct": _r4(missing_pct),
+                "mean": _r4(float(valid.mean())),
+                "std": _r4(float(valid.std(ddof=1))) if n_valid > 1 else np.nan,
+                "min": _r4(float(valid.min())),
+                "p01": _r4(p01_v),
+                "q1": _r4(q1_v),
+                "median": _r4(med_v),
+                "q3": _r4(q3_v),
+                "p99": _r4(p99_v),
+                "max": _r4(float(valid.max())),
+                "iqr": _r4(iqr_v),
+                "tukey_lower_fence": _r4(low_fence),
+                "tukey_upper_fence": _r4(high_fence),
+                "n_below_lower": n_below,
+                "n_above_upper": n_above,
+                "n_tukey_outliers": n_out,
+                "outlier_pct_of_valid": _r4(n_out / n_valid * 100.0),
+                "extreme_lower_fence": _r4(ext_low),
+                "extreme_upper_fence": _r4(ext_high),
+                "n_extreme_outliers": n_ext,
+                "sentinels_removed_in_cleaning": sentinels_info,
+                "treatment_rule": rule,
+                "treatment_justification": justification,
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def _summarize_regime(
+    var_name: str,
+    regime: str,
+    decision: str,
+    series: pd.Series,
+    n_modified: int,
+    n_base_valid: int,
+    base_std: float,
+    base_iqr: float,
+    rationale: str,
+) -> dict[str, object]:
+    """Build a single row comparing central tendency and dispersion under an M2 treatment regime."""
+    n_eval = len(series)
+    cur_std = float(series.std(ddof=1)) if n_eval > 1 else 0.0
+    q1_v, med_v, q3_v = (float(v) for v in series.quantile([0.25, 0.50, 0.75]))
+    cur_iqr = q3_v - q1_v
+    std_chg = ((cur_std - base_std) / base_std * 100.0) if base_std > 0 else 0.0
+    iqr_chg = ((cur_iqr - base_iqr) / base_iqr * 100.0) if base_iqr > 0 else 0.0
+    pct_aff = (n_modified / n_base_valid * 100.0) if n_base_valid > 0 else 0.0
+
+    return {
+        "variable": var_name,
+        "regime": regime,
+        "decision": decision,
+        "n_evaluated": n_eval,
+        "n_modified_or_dropped": n_modified,
+        "pct_valid_affected": _r4(pct_aff),
+        "mean": _r4(float(series.mean())),
+        "std": _r4(cur_std),
+        "std_change_pct": _r4(std_chg),
+        "median": _r4(med_v),
+        "q1": _r4(q1_v),
+        "q3": _r4(q3_v),
+        "iqr": _r4(cur_iqr),
+        "iqr_change_pct": _r4(iqr_chg),
+        "min": _r4(float(series.min())),
+        "max": _r4(float(series.max())),
+        "rationale": rationale,
+    }
+
+
+def evaluate_outlier_treatment(df: pd.DataFrame) -> pd.DataFrame:
+    """Compare central tendency and dispersion across M2 candidate outlier treatment regimes.
+
+    Evaluates ``Retain Valid Unclipped (Chosen)``, ``Winsorize [P01, P99] (Sensitivity Check - Rejected)``,
+    and ``Naive Median-Imputed + Tukey IQR (Anti-Pattern - Rejected)`` across ``age``,
+    ``purchase_amount``, and ``customer_tenure_days``, plus the four scale/capping regimes
+    for ``feedback_score``.
+    """
+    rows: list[dict[str, object]] = []
+
+    cont_vars: list[tuple[str, pd.Series]] = [
+        ("age", df["age"].astype("float64")),
+        ("purchase_amount", df["purchase_amount"].astype("float64")),
+        ("customer_tenure_days", _derive_tenure_days(df)),
+    ]
+    for var_name, full_series in cont_vars:
+        valid = full_series.dropna()
+        n_valid = len(valid)
+        base_std = float(valid.std(ddof=1))
+        bq1, bmed, bq3 = (float(v) for v in valid.quantile([0.25, 0.50, 0.75]))
+        base_iqr = bq3 - bq1
+
+        # 1. Retain Valid Unclipped (Chosen)
+        rows.append(
+            _summarize_regime(
+                var_name,
+                "Retain Valid Unclipped (Chosen)",
+                "Chosen",
+                valid,
+                0,
+                n_valid,
+                base_std,
+                base_iqr,
+                "0 Tukey outliers; preserves 100% of genuine signal and exact parametric/non-parametric spread.",
+            )
+        )
+
+        # 2. Winsorize [P01, P99] (Sensitivity Check - Rejected)
+        p01_v, p99_v = (float(v) for v in valid.quantile([0.01, 0.99]))
+        winsorized = valid.clip(lower=p01_v, upper=p99_v)
+        n_clipped = int(((valid < p01_v) | (valid > p99_v)).sum())
+        rows.append(
+            _summarize_regime(
+                var_name,
+                "Winsorize [P01, P99] (Sensitivity Check - Rejected)",
+                "Rejected",
+                winsorized,
+                n_clipped,
+                n_valid,
+                base_std,
+                base_iqr,
+                "Negligible mean/SD shift (<0.3%) confirms robustness, but arbitrarily censors genuine 1%/99% tails.",
+            )
+        )
+
+        # 3. Naive Median-Imputed + Tukey IQR (Anti-Pattern - Rejected)
+        imputed = full_series.fillna(bmed)
+        iq1, iq3 = (float(v) for v in imputed.quantile([0.25, 0.75]))
+        iiqr = iq3 - iq1
+        ilow, ihigh = iq1 - 1.5 * iiqr, iq3 + 1.5 * iiqr
+        kept_imputed = imputed[(imputed >= ilow) & (imputed <= ihigh)]
+        n_false_dropped = int(((valid < ilow) | (valid > ihigh)).sum())
+        rows.append(
+            _summarize_regime(
+                var_name,
+                "Naive Median-Imputed + Tukey IQR (Anti-Pattern - Rejected)",
+                "Rejected",
+                kept_imputed,
+                n_false_dropped,
+                n_valid,
+                base_std,
+                base_iqr,
+                (
+                    f"Median imputation collapses IQR to 0.00 and falsely drops {n_false_dropped:,}/{n_valid:,} "
+                    f"({n_false_dropped / n_valid * 100:.2f}%) genuine records as 'outliers', leaving SD=0.00."
+                ),
+            )
+        )
+
+    # 4. Feedback score treatment regimes
+    fb_all = df["feedback_score"].dropna().astype("float64")
+    fb_likert_full = _derive_feedback_1_to_5(df)
+    fb_likert = fb_likert_full.dropna()
+    n_likert = len(fb_likert)
+    fb_base_std = float(fb_likert.std(ddof=1))
+    fq1, fmed, fq3 = (float(v) for v in fb_likert.quantile([0.25, 0.50, 0.75]))
+    fb_base_iqr = fq3 - fq1
+    n_spike_10 = int((fb_all == 10.0).sum())
+
+    rows.append(
+        _summarize_regime(
+            "feedback_score",
+            "Dual Scale: Clean Likert 1-5 + is_score_10_spike (Chosen)",
+            "Chosen",
+            fb_likert,
+            n_spike_10,
+            len(fb_all),
+            fb_base_std,
+            fb_base_iqr,
+            "Isolates 2,521 off-scale 10s into is_score_10_spike while preserving unbiased 1-5 Likert statistics.",
+        )
+    )
+    rows.append(
+        _summarize_regime(
+            "feedback_score",
+            "Unfiltered 1-10 Scale (Distorted Mean)",
+            "Rejected (for Likert mean)",
+            fb_all,
+            0,
+            len(fb_all),
+            fb_base_std,
+            fb_base_iqr,
+            "Mixing 1-5 (n=2,528) and 10 (n=2,521) inflates mean to 6.48 (+118.55%) and masks 10 via Q3=10.0.",
+        )
+    )
+    rows.append(
+        _summarize_regime(
+            "feedback_score",
+            "Cap/Winsorize 10 -> 5 (Rejected - False Promoter Surge)",
+            "Rejected",
+            fb_all.clip(upper=5.0),
+            n_spike_10,
+            len(fb_all),
+            fb_base_std,
+            fb_base_iqr,
+            "Remapping 10 -> 5 shifts median 3.0 -> 5.0 and inflates Promoters (4-5) by +266.77% (945 -> 3,466).",
+        )
+    )
+
+    fb_imp = fb_likert_full.fillna(fmed)
+    fiq1, fiq3 = (float(v) for v in fb_imp.quantile([0.25, 0.75]))
+    fiiqr = fiq3 - fiq1
+    filow, fihigh = fiq1 - 1.5 * fiiqr, fiq3 + 1.5 * fiiqr
+    fb_kept_imp = fb_imp[(fb_imp >= filow) & (fb_imp <= fihigh)]
+    fb_false_dropped = int(((fb_likert < filow) | (fb_likert > fihigh)).sum())
+    rows.append(
+        _summarize_regime(
+            "feedback_score",
+            "Naive Median-Imputed + Tukey IQR (Anti-Pattern - Rejected)",
+            "Rejected",
+            fb_kept_imp,
+            fb_false_dropped,
+            n_likert,
+            fb_base_std,
+            fb_base_iqr,
+            (
+                f"Imputing 74.72% missing Likert scores to 3.0 collapses IQR to 0.00 and drops "
+                f"{fb_false_dropped:,}/{n_likert:,} ({fb_false_dropped / n_likert * 100:.2f}%) genuine 1/2/4/5 ratings."
+            ),
+        )
+    )
+
+    return pd.DataFrame(rows)
+
+
+def build_m3_demographic_spend_groupby(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Summarize multi-dimensional gender x age_group KPIs using groupby(..., observed=True).agg(...)."""
+    n_total = len(df_enriched)
+    work = pd.DataFrame(
+        {
+            "customer_id": df_enriched["customer_id"],
+            "gender": _to_categorical(df_enriched["gender"], GENDER_CATEGORIES, ordered=True),
+            "age_group": _derive_age_group(df_enriched),
+            "purchase_amount": df_enriched["purchase_amount"].astype("float64"),
+            "_is_reachable": (
+                df_enriched["has_valid_email"].astype(bool) | df_enriched["has_valid_phone"].astype(bool)
+            ).astype("float64"),
+            "completeness_score": _derive_completeness_score(df_enriched),
+        },
+        index=df_enriched.index,
+    )
+
+    grouped = (
+        work.groupby(["gender", "age_group"], observed=True)
+        .agg(
+            account_count=("customer_id", "count"),
+            valid_spend_n=("purchase_amount", "count"),
+            total_spend_usd=("purchase_amount", "sum"),
+            mean_spend_usd=("purchase_amount", "mean"),
+            std_spend_usd=("purchase_amount", "std"),
+            median_spend_usd=("purchase_amount", "median"),
+            q1_spend=("purchase_amount", lambda s: s.quantile(0.25)),
+            q3_spend=("purchase_amount", lambda s: s.quantile(0.75)),
+            reachable_rate=("_is_reachable", "mean"),
+            mean_completeness_score=("completeness_score", "mean"),
+        )
+        .reset_index()
+    )
+
+    grouped["gender"] = grouped["gender"].astype(str)
+    grouped["age_group"] = grouped["age_group"].astype(str)
+    grouped["account_share_pct"] = (grouped["account_count"] / n_total * 100.0).round(4) + 0.0
+    grouped["spend_coverage_pct"] = (
+        np.where(
+            grouped["account_count"] > 0,
+            grouped["valid_spend_n"] / grouped["account_count"] * 100.0,
+            np.nan,
+        )
+        .round(4)
+        + 0.0
+    )
+    grouped["iqr_spend_usd"] = (grouped["q3_spend"] - grouped["q1_spend"]).round(4) + 0.0
+    grouped["rev_per_1k_valid_customers_usd"] = (
+        np.where(
+            grouped["valid_spend_n"] > 0,
+            grouped["total_spend_usd"] / grouped["valid_spend_n"] * 1000.0,
+            np.nan,
+        )
+        .round(4)
+        + 0.0
+    )
+    grouped["reachable_pct"] = (grouped["reachable_rate"] * 100.0).round(4) + 0.0
+
+    for col in (
+        "total_spend_usd",
+        "mean_spend_usd",
+        "std_spend_usd",
+        "median_spend_usd",
+        "mean_completeness_score",
+    ):
+        grouped[col] = grouped[col].round(4) + 0.0
+
+    ordered_cols = [
+        "gender",
+        "age_group",
+        "account_count",
+        "account_share_pct",
+        "valid_spend_n",
+        "spend_coverage_pct",
+        "total_spend_usd",
+        "mean_spend_usd",
+        "std_spend_usd",
+        "median_spend_usd",
+        "iqr_spend_usd",
+        "rev_per_1k_valid_customers_usd",
+        "reachable_pct",
+        "mean_completeness_score",
+    ]
+    return grouped.loc[:, ordered_cols]
+
+
+def build_m3_country_age_pivot(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Build M3 country x age_group spend matrix via pd.pivot_table(..., observed=True, margins=True)."""
+    work = pd.DataFrame(
+        {
+            "country": _to_categorical(df_enriched["country"], COUNTRY_CATEGORIES, ordered=True),
+            "age_group": _derive_age_group(df_enriched),
+            "purchase_amount": df_enriched["purchase_amount"].astype("float64"),
+        },
+        index=df_enriched.index,
+    )
+
+    piv = pd.pivot_table(
+        work,
+        index="country",
+        columns="age_group",
+        values="purchase_amount",
+        aggfunc=["count", "mean", "median", "sum"],
+        observed=True,
+        margins=True,
+        margins_name="All",
+    )
+
+    age_slug_map: dict[str, str] = {
+        "18-29 (Young Adult)": "age_18_29",
+        "30-44 (Early Career)": "age_30_44",
+        "45-59 (Mid-Senior)": "age_45_59",
+        "60+ (Senior)": "age_60_plus",
+        "Unknown": "age_unknown",
+        "All": "all_ages",
+    }
+    func_prefix_map: dict[str, str] = {
+        "count": "n",
+        "mean": "mean",
+        "median": "median",
+        "sum": "sum",
+    }
+
+    flat = pd.DataFrame({"country": [str(idx) for idx in piv.index]})
+    for agg_name, prefix in func_prefix_map.items():
+        sub = piv[agg_name]
+        for raw_col in [*AGE_GROUP_CATEGORIES, "All"]:
+            if raw_col not in sub.columns:
+                continue
+            col_name = f"{prefix}_{age_slug_map[raw_col]}"
+            if agg_name == "count":
+                flat[col_name] = sub[raw_col].fillna(0).astype(int).to_numpy()
+            else:
+                flat[col_name] = (sub[raw_col].astype("float64").round(4) + 0.0).to_numpy()
+
+    return flat
+
+
+def build_m3_reachability_spend_tier_pivot(df_enriched: pd.DataFrame) -> pd.DataFrame:
+    """Cross contact_reachability_tier x spend_tier via pivot_table & groupby(..., observed=True)."""
+    if "spend_tier" not in df_enriched.columns or "feedback_tier" not in df_enriched.columns:
+        raise ValueError("df_enriched must include 'spend_tier' and 'feedback_tier' from src.features")
+
+    n_total = len(df_enriched)
+    total_rev = float(df_enriched["purchase_amount"].dropna().sum())
+
+    work = pd.DataFrame(
+        {
+            "customer_id": df_enriched["customer_id"],
+            "contact_reachability_tier": _derive_reachability_tier(df_enriched),
+            "spend_tier": df_enriched["spend_tier"],
+            "purchase_amount": df_enriched["purchase_amount"].astype("float64"),
+            "_fb_valid": (df_enriched["feedback_tier"].astype(str) != "Missing").astype(int),
+            "_fb_promoter": (df_enriched["feedback_tier"].astype(str) == "Promoter (4-5)").astype(int),
+            "_fb_detractor": (df_enriched["feedback_tier"].astype(str) == "Detractor (1-2)").astype(int),
+            "_fb_spike10": (df_enriched["feedback_tier"].astype(str) == "Scale-10 Spike (10)").astype(int),
+        },
+        index=df_enriched.index,
+    )
+
+    count_piv = pd.pivot_table(
+        work,
+        index="contact_reachability_tier",
+        columns="spend_tier",
+        values="customer_id",
+        aggfunc="count",
+        observed=True,
+        margins=True,
+        margins_name="All",
+    )
+    rev_piv = pd.pivot_table(
+        work,
+        index="contact_reachability_tier",
+        columns="spend_tier",
+        values="purchase_amount",
+        aggfunc="sum",
+        observed=True,
+        margins=True,
+        margins_name="All",
+    )
+
+    grp_stats = (
+        work.groupby(["contact_reachability_tier", "spend_tier"], observed=True)
+        .agg(
+            account_count=("customer_id", "count"),
+            mean_spend_usd=("purchase_amount", "mean"),
+            median_spend_usd=("purchase_amount", "median"),
+            valid_feedback_n=("_fb_valid", "sum"),
+            promoter_n=("_fb_promoter", "sum"),
+            detractor_n=("_fb_detractor", "sum"),
+            spike10_n=("_fb_spike10", "sum"),
+        )
+        .reset_index()
+    )
+
+    rows: list[dict[str, object]] = []
+    for _, r in grp_stats.iterrows():
+        reach_lbl = str(r["contact_reachability_tier"])
+        spend_lbl = str(r["spend_tier"])
+        acc_n = int(count_piv.loc[reach_lbl, spend_lbl])
+        reach_tot = int(count_piv.loc[reach_lbl, "All"])
+        spend_tot = int(count_piv.loc["All", spend_lbl])
+        cell_rev = float(rev_piv.loc[reach_lbl, spend_lbl]) if spend_lbl != "Missing" else 0.0
+        fb_n = int(r["valid_feedback_n"])
+
+        rows.append(
+            {
+                "contact_reachability_tier": reach_lbl,
+                "spend_tier": spend_lbl,
+                "account_count": acc_n,
+                "pct_of_reachability_tier": _r4(acc_n / reach_tot * 100.0) if reach_tot > 0 else np.nan,
+                "pct_of_spend_tier": _r4(acc_n / spend_tot * 100.0) if spend_tot > 0 else np.nan,
+                "pct_of_total_accounts": _r4(acc_n / n_total * 100.0) if n_total > 0 else np.nan,
+                "verified_revenue_usd": _r4(cell_rev),
+                "pct_of_total_revenue": _r4(cell_rev / total_rev * 100.0) if total_rev > 0 else np.nan,
+                "mean_spend_usd": _r4(float(r["mean_spend_usd"])) if pd.notna(r["mean_spend_usd"]) else np.nan,
+                "median_spend_usd": (
+                    _r4(float(r["median_spend_usd"])) if pd.notna(r["median_spend_usd"]) else np.nan
+                ),
+                "valid_feedback_n": fb_n,
+                "promoter_4_5_pct_of_valid_fb": _r4(int(r["promoter_n"]) / fb_n * 100.0) if fb_n > 0 else np.nan,
+                "detractor_1_2_pct_of_valid_fb": (
+                    _r4(int(r["detractor_n"]) / fb_n * 100.0) if fb_n > 0 else np.nan
+                ),
+                "scale_10_spike_pct_of_valid_fb": (
+                    _r4(int(r["spike10_n"]) / fb_n * 100.0) if fb_n > 0 else np.nan
+                ),
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def export_m3_summaries(
+    df_enriched: pd.DataFrame | None = None,
+    output_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Generate and write all three M3 multi-dimensional aggregation CSV tables."""
+    if df_enriched is None:
+        from src.features import engineer_features, load_enriched_customers
+
+        enriched_csv = PROCESSED_DIR / "customers_enriched_v1.csv"
+        df_enriched = (
+            load_enriched_customers("v1")
+            if enriched_csv.exists()
+            else engineer_features(load_clean_customers("v2"))
+        )
+
+    target_dir = SUMMARIES_DIR if output_dir is None else output_dir
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    artifacts: dict[str, pd.DataFrame] = {
+        "m3_groupby_demographic_spend.csv": build_m3_demographic_spend_groupby(df_enriched),
+        "m3_pivot_country_age_spend.csv": build_m3_country_age_pivot(df_enriched),
+        "m3_pivot_reachability_spend_tier.csv": build_m3_reachability_spend_tier_pivot(df_enriched),
+    }
+
+    written: dict[str, Path] = {}
+    for filename, table in artifacts.items():
+        out_path = target_dir / filename
+        table.to_csv(out_path, index=False)
+        written[filename] = out_path
+    return written
+
+
+def export_m2_summaries(
+    df: pd.DataFrame | None = None,
+    output_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Generate and write the two M2 outlier summary CSV tables deterministically."""
+    clean_df = load_clean_customers("v2") if df is None else df
+    target_dir = SUMMARIES_DIR if output_dir is None else output_dir
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    artifacts: dict[str, pd.DataFrame] = {
+        "m2_iqr_outlier_summary.csv": compute_iqr_outlier_summary(clean_df),
+        "m2_outlier_treatment_comparison.csv": evaluate_outlier_treatment(clean_df),
+    }
+
+    written: dict[str, Path] = {}
+    for filename, table in artifacts.items():
+        out_path = target_dir / filename
+        table.to_csv(out_path, index=False)
+        written[filename] = out_path
+    return written
+
+
 def export_essential_summaries(
     df: pd.DataFrame | None = None,
     output_dir: Path | None = None,
@@ -821,12 +1488,14 @@ def export_essential_summaries(
     written: dict[str, Path] = {}
     for filename, table in artifacts.items():
         out_path = target_dir / filename
-        table.to_csv(out_path, index=False, lineterminator="\n")
+        table.to_csv(out_path, index=False)
         written[filename] = out_path
     return written
 
 
 if __name__ == "__main__":
-    exported = export_essential_summaries()
-    for name, path in exported.items():
+    exported_e = export_essential_summaries()
+    exported_m2 = export_m2_summaries()
+    exported_m3 = export_m3_summaries()
+    for name, path in {**exported_e, **exported_m2, **exported_m3}.items():
         print(f"Exported {name} -> {path}")
