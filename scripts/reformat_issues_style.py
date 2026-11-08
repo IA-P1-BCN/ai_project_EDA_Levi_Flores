@@ -4,10 +4,12 @@ Script to reformat GitHub Issues with Shields.io badges and clean Markdown table
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 
-GH_PATH = r"C:\Users\levif\AppData\Local\Programs\GitHubCLI\bin\gh.exe"
+# Resolve the GitHub CLI from PATH so the script runs on any machine or AI engine.
+GH_PATH = shutil.which("gh") or "gh"
 
 LEVEL_CONFIG = {
     "Foundation": {"color": "C5DEF5", "logo_color": "black"},
