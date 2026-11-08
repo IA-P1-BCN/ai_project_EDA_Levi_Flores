@@ -1,4 +1,4 @@
-"""Publication-grade static visualization module for Essential & Medium EDA (E4, E5, M2).
+"""Publication-grade static visualization module for EDA blocks E4, E5, M2, M5 and M6.
 
 Implements the visual design system, Okabe-Ito colorblind-safe palette, five-element chart
 anatomy, and deterministic 300 DPI export protocol defined in ``specs/ontology.md`` and
@@ -7,8 +7,10 @@ anatomy, and deterministic 300 DPI export protocol defined in ``specs/ontology.m
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
+import matplotlib.dates as mdates
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -26,11 +28,19 @@ from src.analysis import (
     COUNTRY_CATEGORIES,
     GENDER_CATEGORIES,
     NON_INDIAN_COUNTRIES,
+    build_m6_cohort_evolution_summary,
+    build_m6_date_coverage_audit,
+    build_m6_last_purchase_monthly,
+    build_m6_signup_cohorts_monthly,
+    compute_correlation_matrix_long,
+    compute_correlation_pairwise_tests,
+    compute_m6_trend_tests,
     load_clean_customers,
 )
 
 REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 CHARTS_DIR: Path = REPO_ROOT / "assets" / "charts"
+SUMMARY_DIR: Path = REPO_ROOT / "data" / "processed" / "summaries"
 
 # Colorblind-safe Okabe-Ito & institutional palette (.agents/skills/eda-visualization/SKILL.md)
 PALETTE_PRIMARY: str = "#1B4F72"    # Deep Navy (Primary bars / distributions)
@@ -1768,8 +1778,26 @@ def plot_m2_iqr_outlier_boxplots(
         fontweight="bold",
         color="#B91C1C",
     )
-    ax_spend.text(sp_p01 + 90, 0.44, f"P01=${sp_p01:.0f}", ha="left", va="center", fontsize=7.9, fontweight="bold", color="#7570B3")
-    ax_spend.text(sp_p99 - 90, 0.44, f"P99=${sp_p99:,.0f}", ha="right", va="center", fontsize=7.9, fontweight="bold", color="#7570B3")
+    ax_spend.text(
+        sp_p01 + 90,
+        0.44,
+        f"P01=${sp_p01:.0f}",
+        ha="left",
+        va="center",
+        fontsize=7.9,
+        fontweight="bold",
+        color="#7570B3",
+    )
+    ax_spend.text(
+        sp_p99 - 90,
+        0.44,
+        f"P99=${sp_p99:,.0f}",
+        ha="right",
+        va="center",
+        fontsize=7.9,
+        fontweight="bold",
+        color="#7570B3",
+    )
 
     ax_spend.text(
         0.5,
@@ -1956,8 +1984,26 @@ def plot_m2_iqr_outlier_boxplots(
         bbox={"boxstyle": "round,pad=0.25", "facecolor": "#FFF7ED", "edgecolor": PALETTE_ACCENT, "alpha": 0.95},
     )
 
-    ax_fb.text(20.1, -0.36, "Masked Raw Fence = 20.5\n(Q1=3, Q3=10, IQR=7)", ha="right", va="center", fontsize=7.9, fontweight="bold", color="#475569")
-    ax_fb.text(7.25, 0.56, "True Likert Fence = 7.0\n(Q1=2, Q3=4, IQR=2)", ha="left", va="center", fontsize=8.0, fontweight="bold", color="#B91C1C")
+    ax_fb.text(
+        20.1,
+        -0.36,
+        "Masked Raw Fence = 20.5\n(Q1=3, Q3=10, IQR=7)",
+        ha="right",
+        va="center",
+        fontsize=7.9,
+        fontweight="bold",
+        color="#475569",
+    )
+    ax_fb.text(
+        7.25,
+        0.56,
+        "True Likert Fence = 7.0\n(Q1=2, Q3=4, IQR=2)",
+        ha="left",
+        va="center",
+        fontsize=8.0,
+        fontweight="bold",
+        color="#B91C1C",
+    )
 
     ax_fb.text(
         0.5,
@@ -2242,6 +2288,825 @@ def generate_m2_charts(
     return exported
 
 
+# =============================================================================
+# M5 CORRELATION HEATMAP (1 FIGURE)
+# =============================================================================
+
+M5_VARIABLE_ORDER: list[str] = [
+    "age",
+    "purchase_amount",
+    "customer_tenure_days",
+    "feedback_score_1_to_5",
+    "completeness_score",
+    "log_purchase_amount",
+]
+
+M5_VARIABLE_LABELS: dict[str, str] = {
+    "age": "Customer Age\n(years)",
+    "purchase_amount": "Purchase Amount\n(USD $)",
+    "customer_tenure_days": "Customer Tenure\n(days)",
+    "feedback_score_1_to_5": "Feedback Score\n(Likert 1-5)",
+    "completeness_score": "Record Completeness\n(0-1 share)",
+    "log_purchase_amount": "log1p Purchase Amount\n(transform)",
+}
+
+M5_PAIR_LABELS: dict[str, str] = {
+    "age": "Age",
+    "purchase_amount": "Purchase Amount",
+    "customer_tenure_days": "Tenure",
+    "feedback_score_1_to_5": "Feedback (1-5)",
+    "completeness_score": "Completeness",
+    "log_purchase_amount": "log1p Spend",
+}
+
+
+def _load_summary_or_build(
+    filename: str,
+    builder: Callable[[pd.DataFrame], pd.DataFrame],
+    df_enriched: pd.DataFrame | None,
+) -> pd.DataFrame:
+    """Return an analyst summary table from disk, recomputing it only when absent."""
+    summary_path = SUMMARY_DIR / filename
+    if summary_path.exists():
+        return pd.read_csv(summary_path)
+    if df_enriched is None:
+        raise FileNotFoundError(
+            f"Summary table '{summary_path.relative_to(REPO_ROOT).as_posix()}' is missing; "
+            "re-run the M5/M6 statistical export before charting."
+        )
+    return builder(df_enriched)
+
+
+def _format_p_value(p_value: float) -> str:
+    """Format a p-value for compact in-figure annotation."""
+    if p_value < 1e-6:
+        return "p < 0.000001"
+    return f"p = {p_value:.4f}"
+
+
+def _trend_row(trends: pd.DataFrame, series_name: str) -> pd.Series:
+    """Return the accepted (non-sensitivity) M6 trend-test row for one series."""
+    rows = trends.loc[
+        (trends["series"] == series_name) & (~trends["is_sensitivity_check"].astype(bool))
+    ]
+    if rows.empty:
+        raise ValueError(f"Trend test row '{series_name}' missing from m6_trend_tests.csv.")
+    return rows.iloc[0]
+
+
+def plot_m5_correlation_heatmap(
+    df_enriched: pd.DataFrame | None = None,
+    save: bool = True,
+    output_dir: Path | None = None,
+) -> plt.Figure:
+    """Plot the M5 lower-triangle Pearson heatmap with a Spearman rank companion panel."""
+    apply_publication_theme()
+
+    long_df = _load_summary_or_build(
+        "m5_correlation_matrix_long.csv",
+        compute_correlation_matrix_long,
+        df_enriched,
+    )
+    pairwise = _load_summary_or_build(
+        "m5_correlation_pairwise_tests.csv",
+        compute_correlation_pairwise_tests,
+        df_enriched,
+    )
+
+    variables = M5_VARIABLE_ORDER
+    axis_index = {name: idx for idx, name in enumerate(variables)}
+    tick_labels = [M5_VARIABLE_LABELS[name] for name in variables]
+
+    def _matrix(value_column: str) -> pd.DataFrame:
+        return long_df.pivot(
+            index="variable_x", columns="variable_y", values=value_column
+        ).reindex(index=variables, columns=variables)
+
+    pearson_r = _matrix("pearson_r")
+    n_pairs = _matrix("n_pair")
+
+    # Lower triangle only; the deterministic log1p transform cell never enters the narrative.
+    mask = np.triu(np.ones((len(variables), len(variables)), dtype=bool))
+    transform_cells = {
+        (str(row.variable_x), str(row.variable_y))
+        for row in long_df.loc[long_df["is_monotone_transform"].astype(bool)].itertuples()
+    }
+    for var_x, var_y in transform_cells:
+        mask[axis_index[var_x], axis_index[var_y]] = True
+
+    fig = plt.figure(figsize=(16.4, 8.2))
+    ax_heat = fig.add_axes([0.120, 0.225, 0.281, 0.561])
+    cbar_ax = fig.add_axes([0.404, 0.225, 0.009, 0.561])
+
+    sns.heatmap(
+        pearson_r,
+        mask=mask,
+        annot=True,
+        fmt=".2f",
+        cmap="vlag",
+        vmin=-1,
+        vmax=1,
+        square=True,
+        linewidths=0.9,
+        linecolor="white",
+        xticklabels=tick_labels,
+        yticklabels=tick_labels,
+        annot_kws={"fontsize": 10.5, "fontweight": "bold", "color": "#111827"},
+        cbar_ax=cbar_ax,
+        ax=ax_heat,
+    )
+    ax_heat.set_xlabel("Variable (matrix column)", fontsize=10.5)
+    ax_heat.set_ylabel("Variable (matrix row)", fontsize=10.5)
+    ax_heat.set_title(
+        "(a) Pearson r: All Off-Diagonal Cells Are Near Zero (lower triangle; n annotated)",
+        loc="left",
+        pad=12,
+        fontsize=11,
+    )
+    plt.setp(
+        ax_heat.get_xticklabels(),
+        rotation=32,
+        ha="right",
+        rotation_mode="anchor",
+        fontsize=9,
+    )
+    plt.setp(ax_heat.get_yticklabels(), rotation=0, fontsize=9)
+    ax_heat.grid(False)
+
+    colorbar = ax_heat.collections[0].colorbar
+    colorbar.set_ticks([-1.0, -0.5, 0.0, 0.5, 1.0])
+    cbar_ax.set_ylabel("Pearson correlation coefficient (r)", fontsize=9.5, fontweight="bold")
+    cbar_ax.yaxis.set_label_position("right")
+    colorbar.ax.tick_params(labelsize=8.5)
+
+    for row_idx in range(len(variables)):
+        for col_idx in range(len(variables)):
+            if mask[row_idx, col_idx]:
+                continue
+            pair_n = int(n_pairs.iloc[row_idx, col_idx])
+            ax_heat.text(
+                col_idx + 0.5,
+                row_idx + 0.77,
+                f"n={pair_n:,}",
+                ha="center",
+                va="center",
+                fontsize=7.0,
+                color="#4B5563",
+            )
+
+    for var_x, var_y in transform_cells:
+        row_idx, col_idx = axis_index[var_x], axis_index[var_y]
+        if row_idx <= col_idx:
+            continue
+        ax_heat.add_patch(
+            mpatches.Rectangle(
+                (col_idx, row_idx),
+                1,
+                1,
+                fill=False,
+                hatch="///",
+                edgecolor="#9CA3AF",
+                linewidth=0.0,
+                zorder=3,
+            )
+        )
+        ax_heat.text(
+            col_idx + 0.5,
+            row_idx + 0.5,
+            "0.88*\nlog1p only",
+            ha="center",
+            va="center",
+            fontsize=8.2,
+            fontweight="bold",
+            color="#6B7280",
+            zorder=4,
+            bbox={
+                "boxstyle": "round,pad=0.22",
+                "facecolor": "white",
+                "edgecolor": "#D1D5DB",
+                "alpha": 0.96,
+            },
+        )
+
+    # Companion panel: Pearson r vs. Spearman rho for the 14 independent pairs only.
+    independent = pairwise.loc[~pairwise["is_monotone_transform"].astype(bool)].copy()
+    independent = independent.loc[independent["variable_x"] != independent["variable_y"]].copy()
+    independent["max_abs"] = independent[["abs_pearson_r", "abs_spearman_rho"]].max(axis=1)
+    independent = independent.sort_values(
+        ["max_abs", "n_pair"], ascending=[True, True]
+    ).reset_index(drop=True)
+
+    ax_rank = fig.add_axes([0.655, 0.225, 0.330, 0.561])
+    positions = np.arange(len(independent), dtype=float)
+    ax_rank.axvspan(-0.10, 0.10, color="#E5E7EB", alpha=0.55, lw=0, zorder=0)
+    ax_rank.axvline(0.0, color="#374151", lw=1.1, zorder=2)
+    ax_rank.hlines(
+        positions,
+        independent["pearson_r"],
+        independent["spearman_rho"],
+        color="#CBD5E1",
+        lw=2.6,
+        zorder=1,
+    )
+    ax_rank.scatter(
+        independent["pearson_r"],
+        positions,
+        s=64,
+        color=PALETTE_PRIMARY,
+        zorder=3,
+        label="Pearson r (linear)",
+    )
+    ax_rank.scatter(
+        independent["spearman_rho"],
+        positions,
+        s=66,
+        marker="D",
+        color=PALETTE_ACCENT,
+        zorder=4,
+        label="Spearman \u03c1 (rank)",
+    )
+
+    pair_labels = [
+        f"{M5_PAIR_LABELS[row.variable_x]} \u00d7 {M5_PAIR_LABELS[row.variable_y]} (n = {int(row.n_pair):,})"
+        for row in independent.itertuples()
+    ]
+    ax_rank.set_yticks(positions)
+    ax_rank.set_yticklabels(pair_labels, fontsize=8.4)
+    ax_rank.set_ylim(-1.15, len(independent) - 0.05)
+    ax_rank.set_xlim(-0.16, 0.16)
+    ax_rank.set_xticks([-0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15])
+    ax_rank.set_xlabel("Correlation coefficient (r / \u03c1, -1 to +1)", fontsize=10.5)
+    ax_rank.set_ylabel("Independent variable pair (pairwise valid n)", fontsize=10.5)
+    ax_rank.set_title(
+        "(b) Pearson r vs. Spearman \u03c1: All 14 Non-Transform Pairs Stay Within \u00b10.13",
+        loc="left",
+        pad=12,
+        fontsize=11,
+    )
+    ax_rank.tick_params(axis="y", length=0)
+    ax_rank.set_axisbelow(True)
+    ax_rank.legend(
+        loc="upper left",
+        bbox_to_anchor=(0.005, 1.0),
+        frameon=True,
+        facecolor="white",
+        edgecolor="#CBD5E1",
+        fontsize=8.8,
+    )
+    ax_rank.text(
+        0.0,
+        -0.85,
+        "negligible band (|coefficient| < 0.10)",
+        ha="center",
+        va="center",
+        fontsize=7.8,
+        color="#6B7280",
+        bbox={"boxstyle": "round,pad=0.18", "facecolor": "white", "edgecolor": "none", "alpha": 0.92},
+    )
+
+    top_pair = independent.iloc[-1]
+    ax_rank.text(
+        0.985,
+        0.17,
+        f"largest coefficient:\nAge \u00d7 Tenure  r = {top_pair['pearson_r']:+.3f}, "
+        f"\u03c1 = {top_pair['spearman_rho']:+.3f}\n({_format_p_value(float(top_pair['pearson_p']))}, "
+        f"n = {int(top_pair['n_pair']):,})",
+        transform=ax_rank.transAxes,
+        ha="right",
+        va="center",
+        fontsize=8.4,
+        color="#374151",
+        bbox={"boxstyle": "round,pad=0.32", "facecolor": "#F9FAFB", "edgecolor": "#D1D5DB", "alpha": 0.96},
+    )
+
+    _add_publication_chrome(
+        fig,
+        title=(
+            "No Material Linear or Rank Association Across Valid Records: Largest |r| = 0.126 "
+            "(Age \u00d7 Tenure, n = 206) and No Pair Reaches p < 0.05"
+        ),
+        subtitle=(
+            "Scope: 14 non-transform variable pairs from N = 10,000 enriched records (15 pairs total; "
+            "1 is a deterministic log1p transform) | pairwise n ranges 206 to 2,528 | "
+            "Correlation does not imply causation\n"
+            "log_purchase_amount is a monotone rescaling of purchase_amount (\u03c1 = 1.0000, n = 2,466), "
+            "so its transform cell is masked and no log1p pair is read as an independent finding"
+        ),
+        title_y=0.982,
+        subtitle_y=0.933,
+        caption_y=0.008,
+        source_caption=SOURCE_CAPTION_V2,
+    )
+    fig.text(
+        0.012,
+        0.045,
+        "* purchase_amount \u00d7 log_purchase_amount is a monotone transform pair (r = 0.8845, "
+        "\u03c1 = 1.0000, n = 2,466): a collinearity check, never an independent finding. "
+        "The remaining log1p cells rank-mirror purchase_amount.",
+        fontsize=8.6,
+        color="#4B5563",
+        ha="left",
+        va="bottom",
+    )
+
+    if save:
+        save_publication_figure(fig, "m5", "correlation_heatmap", output_dir=output_dir)
+    return fig
+
+
+# =============================================================================
+# M6 TEMPORAL TREND & COHORT CENSORING CHARTS (2 FIGURES)
+# =============================================================================
+
+
+def plot_m6_signup_and_activity_trends(
+    df_enriched: pd.DataFrame | None = None,
+    save: bool = True,
+    output_dir: Path | None = None,
+) -> plt.Figure:
+    """Plot M6 monthly signup and last-purchase activity with rolling means and trend tests."""
+    apply_publication_theme()
+
+    signup = _load_summary_or_build(
+        "m6_signup_cohorts_monthly.csv",
+        build_m6_signup_cohorts_monthly,
+        df_enriched,
+    )
+    activity = _load_summary_or_build(
+        "m6_last_purchase_monthly.csv",
+        build_m6_last_purchase_monthly,
+        df_enriched,
+    )
+    trends = _load_summary_or_build(
+        "m6_trend_tests.csv",
+        compute_m6_trend_tests,
+        df_enriched,
+    )
+    coverage = _load_summary_or_build(
+        "m6_date_coverage_audit.csv",
+        build_m6_date_coverage_audit,
+        df_enriched,
+    )
+
+    def _coverage_n(metric: str) -> int:
+        return int(coverage.loc[coverage["metric"] == metric, "n"].iloc[0])
+
+    signup_trend = _trend_row(trends, "monthly_signup_volume")
+    activity_trend = _trend_row(trends, "monthly_last_purchase_activity")
+
+    signup_months = pd.to_datetime(signup["cohort_month"], format="%Y-%m")
+    activity_months = pd.to_datetime(activity["activity_month"], format="%Y-%m")
+    signup_counts = signup["n_signups"].astype(float)
+    activity_counts = activity["n_purchases"].astype(float)
+    signup_roll = signup_counts.rolling(3, min_periods=1).mean()
+    activity_roll = activity_counts.rolling(3, min_periods=1).mean()
+
+    fig = plt.figure(figsize=(16.2, 7.6))
+    gs = fig.add_gridspec(
+        nrows=1,
+        ncols=2,
+        left=0.055,
+        right=0.985,
+        top=0.795,
+        bottom=0.185,
+        wspace=0.16,
+    )
+    ax_sig = fig.add_subplot(gs[0, 0])
+    ax_act = fig.add_subplot(gs[0, 1])
+
+    panels = [
+        (
+            ax_sig,
+            signup_months,
+            signup_counts,
+            signup_roll,
+            signup_trend,
+            PALETTE_PRIMARY,
+            "Monthly signups (n)",
+            "(a) Monthly Signup Volume: 57-106 per Month, Flat Across All 66 Months",
+            (0.0, 136.0),
+            (0.02, 0.99),
+        ),
+        (
+            ax_act,
+            activity_months,
+            activity_counts,
+            activity_roll,
+            activity_trend,
+            PALETTE_SECONDARY,
+            "Monthly last purchases (n)",
+            "(b) Monthly Last-Purchase Activity: 36-69 per Month, Flat Across All 66 Months",
+            (0.0, 90.0),
+            (0.02, 0.99),
+        ),
+    ]
+
+    for ax, months, counts, rolling, trend, color, ylabel, panel_title, y_lims, text_xy in panels:
+        ax.bar(
+            months,
+            counts,
+            width=22,
+            color=color,
+            alpha=0.88,
+            edgecolor="white",
+            linewidth=0.4,
+            zorder=2,
+        )
+        ax.plot(months, rolling, color=PALETTE_ACCENT, lw=2.4, zorder=4)
+        mean_value = float(counts.mean())
+        ax.axhline(mean_value, color=PALETTE_MUTED, ls=":", lw=1.8, zorder=3)
+
+        for start, end in (("2020-08-01", "2020-09-01"), ("2026-01-01", "2026-02-01")):
+            ax.axvspan(
+                pd.Timestamp(start),
+                pd.Timestamp(end),
+                color=PALETTE_MUTED,
+                alpha=0.20,
+                lw=0,
+                zorder=1,
+            )
+
+        ax.set_ylim(*y_lims)
+        ax.set_xlim(pd.Timestamp("2020-07-10"), pd.Timestamp("2026-02-20"))
+        ax.set_xlabel("Calendar month (2020-08 to 2026-01)", fontsize=10.5)
+        ax.set_ylabel(ylabel, fontsize=10.5)
+        ax.set_title(panel_title, loc="left", pad=12, fontsize=11, fontweight="bold")
+        ax.xaxis.set_major_locator(mdates.YearLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+        ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=[1, 7]))
+        ax.xaxis.set_minor_formatter(mticker.NullFormatter())
+        ax.tick_params(axis="x", which="minor", length=3, color="#9CA3AF")
+        ax.set_axisbelow(True)
+
+        rho = float(trend["spearman_rho_vs_time_index"])
+        p_value = float(trend["p_value"])
+        ax.text(
+            text_xy[0],
+            text_xy[1],
+            f"Spearman \u03c1 vs. month index = {rho:+.4f} ({_format_p_value(p_value)})\n"
+            f"n = {int(trend['n_points'])} months \u2192 no monotone trend at \u03b1 = 0.05\n"
+            f"Full-period mean = {mean_value:.2f} per month; "
+            f"range {counts.min():.0f}-{counts.max():.0f}",
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=8.8,
+            color="#1F2937",
+            bbox={
+                "boxstyle": "round,pad=0.34",
+                "facecolor": "#F9FAFB",
+                "edgecolor": "#CBD5E1",
+                "alpha": 0.96,
+            },
+        )
+
+    legend_handles = [
+        mpatches.Patch(color=PALETTE_PRIMARY, alpha=0.88, label="Monthly signup count (n)"),
+        mpatches.Patch(color=PALETTE_SECONDARY, alpha=0.88, label="Monthly last-purchase count (n)"),
+        mlines.Line2D([], [], color=PALETTE_ACCENT, lw=2.4, label="3-month trailing mean"),
+        mlines.Line2D([], [], color=PALETTE_MUTED, ls=":", lw=1.8, label="Full-period mean"),
+        mpatches.Patch(color=PALETTE_MUTED, alpha=0.20, label="Partial month (incomplete calendar coverage)"),
+    ]
+    fig.legend(
+        handles=legend_handles,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 0.075),
+        ncol=5,
+        frameon=False,
+        fontsize=9,
+    )
+
+    _add_publication_chrome(
+        fig,
+        title=(
+            "Acquisition and Recency Volume Are Flat Across All 66 Months: Signups \u03c1 = +0.061 "
+            "(p = 0.627) and Last-Purchase Activity \u03c1 = +0.052 (p = 0.678)"
+        ),
+        subtitle=(
+            f"Scope: customers_clean_v2.csv dated subpopulation only - n = {int(signup_counts.sum()):,} valid "
+            f"signup dates and n = {int(activity_counts.sum()):,} valid last-purchase dates across 66 calendar "
+            "months (2020-08 to 2026-01)\n"
+            f"The {_coverage_n('is_date_inverted_true'):,} is_date_inverted pairs are retained in these single-date "
+            "series (each date is individually valid); NaT dates are excluded "
+            f"({_coverage_n('signup_date_missing_nat'):,} signups, "
+            f"{_coverage_n('last_purchase_date_missing_nat'):,} last purchases)"
+        ),
+        title_y=0.982,
+        subtitle_y=0.934,
+        caption_y=0.008,
+        source_caption=SOURCE_CAPTION_V2,
+    )
+
+    if save:
+        save_publication_figure(fig, "m6", "signup_and_activity_trends", output_dir=output_dir)
+    return fig
+
+
+def plot_m6_cohort_tenure_censoring(
+    df_enriched: pd.DataFrame | None = None,
+    save: bool = True,
+    output_dir: Path | None = None,
+) -> plt.Figure:
+    """Plot M6 cohort tenure beside the observation window that right-censors it."""
+    apply_publication_theme()
+
+    cohorts = _load_summary_or_build(
+        "m6_cohort_evolution_summary.csv",
+        build_m6_cohort_evolution_summary,
+        df_enriched,
+    )
+    trends = _load_summary_or_build(
+        "m6_trend_tests.csv",
+        compute_m6_trend_tests,
+        df_enriched,
+    )
+    tenure_trend = _trend_row(trends, "cohort_year_mean_tenure")
+
+    cohorts = cohorts.sort_values("signup_year").reset_index(drop=True)
+    years = cohorts["signup_year"].astype(int).to_numpy()
+    tenure = cohorts["mean_tenure_days"].astype(float).to_numpy()
+    window = cohorts["mean_observation_window_days"].astype(float).to_numpy()
+    ratio = cohorts["tenure_to_window_ratio"].astype(float).to_numpy()
+    n_tenure = cohorts["n_valid_tenure"].astype(int).to_numpy()
+    partial = cohorts["is_partial_year"].astype(bool).to_numpy()
+
+    comparable = cohorts.loc[cohorts["signup_year"].astype(int) <= 2025]
+    tenure_start = float(comparable["mean_tenure_days"].iloc[0])
+    tenure_end = float(comparable["mean_tenure_days"].iloc[-1])
+    window_start = float(comparable["mean_observation_window_days"].iloc[0])
+    window_end = float(comparable["mean_observation_window_days"].iloc[-1])
+    ratio_min = float(comparable["tenure_to_window_ratio"].min())
+    ratio_max = float(comparable["tenure_to_window_ratio"].max())
+    tenure_change_pct = (tenure_end - tenure_start) / tenure_start * 100.0
+    window_change_pct = (window_end - window_start) / window_start * 100.0
+    trend_rho = float(tenure_trend["spearman_rho_vs_time_index"])
+    trend_p = float(tenure_trend["p_value"])
+
+    fig = plt.figure(figsize=(15.2, 7.9))
+    gs = fig.add_gridspec(
+        nrows=1,
+        ncols=1,
+        left=0.068,
+        right=0.935,
+        top=0.795,
+        bottom=0.165,
+    )
+    ax_bar = fig.add_subplot(gs[0, 0])
+    ax_ratio = ax_bar.twinx()
+
+    positions = np.arange(len(years), dtype=float)
+    bar_width = 0.38
+
+    ax_bar.axvspan(-0.5, 0.5, color="#9CA3AF", alpha=0.10, lw=0, zorder=0)
+    ax_bar.axvspan(len(years) - 1.5, len(years) - 0.5, color="#9CA3AF", alpha=0.10, lw=0, zorder=0)
+
+    tenure_bars = ax_bar.bar(
+        positions - bar_width / 2,
+        tenure,
+        bar_width,
+        color=PALETTE_PRIMARY,
+        alpha=0.92,
+        edgecolor="white",
+        linewidth=0.6,
+        label="Mean customer tenure (days)",
+        zorder=3,
+    )
+    window_bars = ax_bar.bar(
+        positions + bar_width / 2,
+        window,
+        bar_width,
+        color=PALETTE_SECONDARY,
+        alpha=0.55,
+        edgecolor="white",
+        linewidth=0.6,
+        label="Mean observation window (days, last purchase \u2212 signup)",
+        zorder=3,
+    )
+    for bar, is_partial in zip(tenure_bars, partial):
+        if is_partial:
+            bar.set_hatch("////")
+            bar.set_edgecolor("#111827")
+    for bar, is_partial in zip(window_bars, partial):
+        if is_partial:
+            bar.set_hatch("////")
+            bar.set_edgecolor("#6B7280")
+
+    ax_ratio.axhspan(ratio_min, ratio_max, color=PALETTE_ACCENT, alpha=0.08, lw=0, zorder=1)
+    ax_ratio.plot(
+        positions,
+        ratio,
+        color=PALETTE_ACCENT,
+        lw=2.3,
+        marker="o",
+        markersize=7.5,
+        markerfacecolor=PALETTE_ACCENT,
+        markeredgecolor="white",
+        markeredgewidth=1.2,
+        label="Tenure-to-window ratio (share, 0-1)",
+        zorder=5,
+    )
+    partial_positions = positions[partial]
+    ax_ratio.plot(
+        partial_positions,
+        ratio[partial],
+        linestyle="none",
+        marker="o",
+        markersize=8.0,
+        markerfacecolor="white",
+        markeredgecolor=PALETTE_ACCENT,
+        markeredgewidth=1.8,
+        zorder=6,
+    )
+
+    ax_bar.set_xlim(-0.62, len(years) - 0.38)
+    ax_bar.set_ylim(0, 2350)
+    ax_bar.set_xticks(positions)
+    ax_bar.set_xticklabels(
+        [f"{year}\n(partial)" if is_partial else f"{year}" for year, is_partial in zip(years, partial)],
+        fontsize=9.5,
+    )
+    ax_bar.set_xlabel(
+        "Signup cohort year (calendar year; 2020 and 2026 are partial calendar years)",
+        fontsize=10.5,
+    )
+    ax_bar.set_ylabel("Mean duration in days (tenure and observation window)", fontsize=10.5)
+    ax_bar.set_axisbelow(True)
+    ax_ratio.set_ylim(0.0, 1.0)
+    ax_ratio.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ax_ratio.set_ylabel("Tenure-to-window ratio (share of observable window)", fontsize=10.5)
+    ax_ratio.spines["right"].set_visible(True)
+    ax_ratio.patch.set_visible(False)
+    ax_ratio.set_zorder(ax_bar.get_zorder() + 1)
+
+    for pos, value, n_val in zip(positions - bar_width / 2, tenure, n_tenure):
+        if n_val >= 20:
+            ax_bar.text(
+                pos,
+                value - 42,
+                f"n = {n_val:,}",
+                ha="center",
+                va="top",
+                fontsize=7.4,
+                color="white",
+                fontweight="bold",
+                zorder=4,
+            )
+        else:
+            ax_bar.text(
+                pos,
+                value + 55,
+                f"n = {n_val}*",
+                ha="center",
+                va="bottom",
+                fontsize=7.4,
+                color="#111827",
+                fontweight="bold",
+                zorder=4,
+            )
+
+    ax_bar.annotate(
+        f"{tenure_start:,.1f} d",
+        xy=(positions[0] - bar_width / 2, tenure_start),
+        xytext=(0.0, 78),
+        textcoords="offset points",
+        ha="center",
+        va="bottom",
+        fontsize=8.6,
+        fontweight="bold",
+        color=PALETTE_PRIMARY,
+    )
+    ax_bar.annotate(
+        f"{tenure_end:,.1f} d",
+        xy=(positions[5] - bar_width / 2, tenure_end),
+        xytext=(0.0, 16),
+        textcoords="offset points",
+        ha="center",
+        va="bottom",
+        fontsize=8.6,
+        fontweight="bold",
+        color=PALETTE_PRIMARY,
+    )
+    ax_bar.annotate(
+        f"{window_start:,.0f} d",
+        xy=(positions[0] + bar_width / 2, window_start),
+        xytext=(0.0, 10),
+        textcoords="offset points",
+        ha="center",
+        va="bottom",
+        fontsize=8.6,
+        fontweight="bold",
+        color="#1F5F7A",
+    )
+    ax_bar.annotate(
+        f"{window_end:,.0f} d",
+        xy=(positions[5] + bar_width / 2, window_end),
+        xytext=(0.0, 12),
+        textcoords="offset points",
+        ha="center",
+        va="bottom",
+        fontsize=8.6,
+        fontweight="bold",
+        color="#1F5F7A",
+    )
+
+    ax_bar.text(
+        0.140,
+        0.985,
+        f"Mean tenure falls {tenure_start:,.1f} \u2192 {tenure_end:,.1f} days "
+        f"({tenure_change_pct:+.1f}%) from the 2020 to the 2025 cohort\n"
+        f"The observable window falls {window_start:,.0f} \u2192 {window_end:,.0f} days "
+        f"({window_change_pct:+.1f}%) over the same cohorts\n"
+        f"Tenure-to-window ratio stays {ratio_min:.3f}-{ratio_max:.3f}: right-censoring, not retention decay",
+        transform=ax_bar.transAxes,
+        ha="left",
+        va="top",
+        fontsize=8.6,
+        color="#1F2937",
+        bbox={
+            "boxstyle": "round,pad=0.36",
+            "facecolor": "#F9FAFB",
+            "edgecolor": "#CBD5E1",
+            "alpha": 0.97,
+        },
+        zorder=7,
+    )
+
+    handles_bar, labels_bar = ax_bar.get_legend_handles_labels()
+    handles_ratio, labels_ratio = ax_ratio.get_legend_handles_labels()
+    ax_bar.legend(
+        handles_bar + handles_ratio,
+        labels_bar + labels_ratio,
+        loc="upper right",
+        bbox_to_anchor=(0.998, 0.998),
+        frameon=True,
+        facecolor="white",
+        edgecolor="#CBD5E1",
+        fontsize=8.4,
+    )
+
+    _add_publication_chrome(
+        fig,
+        title=(
+            "Apparent Tenure Collapse (920 \u2192 127 Days) Is Right-Censoring: the Observable Window Shrinks "
+            "1,920 \u2192 207 Days While the Tenure-to-Window Ratio Stays 0.48-0.61"
+        ),
+        subtitle=(
+            f"Scope: signup-year cohorts with valid chronological tenure - n = {int(n_tenure.sum()):,} valid "
+            f"tenures across {len(years)} cohorts (2020-2026); the 829 is_date_inverted pairs are excluded "
+            "from tenure by construction\n"
+            f"Cohort mean tenure vs. cohort year: Spearman \u03c1 = {trend_rho:+.4f} "
+            f"({_format_p_value(trend_p)}) across the 6 cohort years with n \u2265 30 valid tenures (2020-2025)"
+        ),
+        title_y=0.982,
+        subtitle_y=0.936,
+        caption_y=0.008,
+        source_caption=SOURCE_CAPTION_V2,
+    )
+    fig.text(
+        0.012,
+        0.042,
+        "* 2026 cohort holds n = 1 valid tenure and a 9-day observable window (partial year ending "
+        "2026-01-26); its ratio is plotted for completeness only and must not be interpreted.",
+        fontsize=8.6,
+        color="#4B5563",
+        ha="left",
+        va="bottom",
+    )
+
+    if save:
+        save_publication_figure(fig, "m6", "cohort_tenure_censoring", output_dir=output_dir)
+    return fig
+
+
+def generate_m5m6_charts(
+    df_enriched: pd.DataFrame | None = None,
+    output_dir: Path | None = None,
+    blocks: tuple[str, ...] = ("m5", "m6"),
+) -> dict[str, Path]:
+    """Generate and export the M5 correlation and M6 temporal figures at 300 DPI."""
+    if df_enriched is None:
+        from src.features import engineer_features
+
+        df_enriched = engineer_features(load_clean_customers("v2"))
+
+    target_dir = output_dir if output_dir is not None else CHARTS_DIR
+    builders = {
+        "m5": [("m5_correlation_heatmap", plot_m5_correlation_heatmap)],
+        "m6": [
+            ("m6_signup_and_activity_trends", plot_m6_signup_and_activity_trends),
+            ("m6_cohort_tenure_censoring", plot_m6_cohort_tenure_censoring),
+        ],
+    }
+
+    exported: dict[str, Path] = {}
+    for block in blocks:
+        for key, fn in builders[block]:
+            fig = fn(df_enriched, save=True, output_dir=target_dir)
+            plt.close(fig)
+            exported[key] = target_dir / f"{key}.png"
+    return exported
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -2251,7 +3116,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate publication EDA figures.")
     parser.add_argument(
         "--block",
-        choices=("essential", "m2", "all"),
+        choices=("essential", "m2", "m5", "m6", "m5m6", "all"),
         default="m2",
         help="Delivery block of charts to export (default: m2).",
     )
@@ -2267,3 +3132,9 @@ if __name__ == "__main__":
         generate_essential_charts()
     if args.block in ("m2", "all"):
         generate_m2_charts(output_dir=args.output_dir)
+    if args.block == "m5":
+        generate_m5m6_charts(output_dir=args.output_dir, blocks=("m5",))
+    if args.block == "m6":
+        generate_m5m6_charts(output_dir=args.output_dir, blocks=("m6",))
+    if args.block in ("m5m6", "all"):
+        generate_m5m6_charts(output_dir=args.output_dir, blocks=("m5", "m6"))
