@@ -24,8 +24,8 @@ nbformat>=5.9.0
 # Report export: Markdown -> HTML for scripts/export_report_pdf.py (M7 PDF)
 markdown>=3.5
 
-# Interactive dashboard (X2)
-streamlit>=1.40.0
+# Interactive dashboard (X2); >=1.50 for width="stretch", button icons and AppTest smoke tests
+streamlit>=1.50.0
 
 # Quality gate: tests and linting (X3, pr-self-review)
 pytest>=8.0.0

@@ -2636,7 +2636,8 @@ def compute_a4_transformation_statistics(df_enriched: pd.DataFrame) -> pd.DataFr
         q1, med_v, q3 = (float(v) for v in s.quantile([0.25, 0.50, 0.75]))
         skew_v = float(s.skew())
         kurt_v = float(s.kurt())
-        jb_stat, jb_p = stats.jarque_bera(s)
+        # Jarque-Bera is undefined for tiny samples; report NaN instead of emitting a SmallSampleWarning.
+        jb_stat, jb_p = stats.jarque_bera(s) if n >= 3 else (np.nan, np.nan)
 
         rows.append(
             {

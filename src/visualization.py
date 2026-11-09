@@ -3524,6 +3524,7 @@ def plot_a6_interactive_customer_explorer(
     plot_df = df_enriched_v2[
         df_enriched_v2["purchase_amount"].notna() & df_enriched_v2["age"].notna()
     ].copy()
+    n_plotted = len(plot_df)
 
     fig_plotly = px.scatter(
         plot_df,
@@ -3549,7 +3550,7 @@ def plot_a6_interactive_customer_explorer(
             "gender": "Gender",
             "metro_region": "Metro Region",
         },
-        title="<b>Interactive Customer Value Explorer</b><br><sup>Hover to inspect customer spend, demographics, reachability and regional metadata | n = 2,465 valid orders</sup>",
+        title=f"<b>Interactive Customer Value Explorer</b><br><sup>Hover to inspect customer spend, demographics, reachability and regional metadata | n = {n_plotted:,} customers with valid age and spend</sup>",
         color_discrete_map={
             "High (>$3,500)": PALETTE_ACCENT,
             "Medium ($1,200-$3,500)": PALETTE_PRIMARY,
@@ -3569,7 +3570,8 @@ def plot_a6_interactive_customer_explorer(
 
     if save_html:
         html_path = target_dir / "a6_interactive_customer_explorer.html"
-        fig_plotly.write_html(str(html_path), include_plotlyjs="cdn")
+        # Fixed div_id keeps the exported HTML byte-identical across runs (Law 3 idempotency).
+        fig_plotly.write_html(str(html_path), include_plotlyjs="cdn", div_id="a6-interactive-customer-explorer")
         try:
             rel_display = html_path.resolve().relative_to(REPO_ROOT).as_posix()
         except ValueError:
@@ -3626,7 +3628,10 @@ def plot_a6_interactive_customer_explorer(
     _add_publication_chrome(
         fig=fig_static,
         title="Interactive Customer Exploration: Spend Tiers, Demographics and Reachability",
-        subtitle="Static Publication Mirror of Plotly Explorer (a6_interactive_customer_explorer.html) | n = 2,465 valid orders",
+        subtitle=(
+            "Static Publication Mirror of Plotly Explorer (a6_interactive_customer_explorer.html) | "
+            f"n = {n_plotted:,} customers with valid age and spend"
+        ),
         title_y=0.985,
         subtitle_y=0.94,
         source_caption="Source: Customer Messy Data (customers_enriched_v2.csv) | Author: @levifvy",

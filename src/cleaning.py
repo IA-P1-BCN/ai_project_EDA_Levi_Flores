@@ -815,7 +815,7 @@ def build_suspicious_data_audit(
             "severity": "Medium",
             "remediation_action": "Retain raw score in feedback_score; isolate in feedback_score_1_to_5 as NaN",
             "analytical_safeguard": (
-                "Tracked via is_score_10_spike; prevents 2,521 score-10 ratings from inflating 1-5 CSAT mean (2.97)"
+                "Tracked via is_score_10_spike; prevents 2,521 score-10 ratings from inflating 1-5 CSAT mean (2.96)"
             ),
         },
         {
@@ -913,13 +913,26 @@ def build_suspicious_data_audit(
     return pd.DataFrame(records)
 
 
-def export_a3_artifacts(output_dir: Path | None = None) -> dict[str, Path]:
-    """Generate and write ``a3_suspicious_data_audit.csv`` to data/processed/summaries/."""
-    target_summaries_dir = (output_dir if output_dir is not None else PROCESSED_DIR) / "summaries"
+def export_a3_artifacts(
+    output_dir: Path | None = None,
+    *,
+    df_raw: pd.DataFrame | None = None,
+    df_clean_v2: pd.DataFrame | None = None,
+    summary_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Generate and write ``a3_suspicious_data_audit.csv`` to data/processed/summaries/.
+
+    ``df_raw`` / ``df_clean_v2`` let the pipeline reuse frames it already built (and honour a
+    custom ``--raw-path``); ``summary_dir`` overrides the default ``<output_dir>/summaries``.
+    """
+    processed_dir = output_dir if output_dir is not None else PROCESSED_DIR
+    target_summaries_dir = summary_dir if summary_dir is not None else processed_dir / "summaries"
     target_summaries_dir.mkdir(parents=True, exist_ok=True)
 
-    df_raw = load_raw_customers()
-    df_clean_v2 = clean_customers(df_raw)
+    if df_raw is None:
+        df_raw = load_raw_customers()
+    if df_clean_v2 is None:
+        df_clean_v2 = clean_customers(df_raw)
 
     audit_df = build_suspicious_data_audit(df_raw, df_clean_v2)
     out_path = target_summaries_dir / A3_AUDIT_FILENAME
@@ -927,16 +940,28 @@ def export_a3_artifacts(output_dir: Path | None = None) -> dict[str, Path]:
     return {"a3_suspicious_data_audit": out_path}
 
 
-def export_m1_artifacts(output_dir: Path | None = None) -> dict[str, Path]:
-    """Generate and save ``customers_clean_v2.csv`` and the two ``M1`` summary CSVs."""
+def export_m1_artifacts(
+    output_dir: Path | None = None,
+    *,
+    df_raw: pd.DataFrame | None = None,
+    df_clean_v2: pd.DataFrame | None = None,
+    summary_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Generate and save ``customers_clean_v2.csv`` and the two ``M1`` summary CSVs.
+
+    ``df_raw`` / ``df_clean_v2`` let the pipeline reuse frames it already built (and honour a
+    custom ``--raw-path``); ``summary_dir`` overrides the default ``<output_dir>/summaries``.
+    """
     target_processed_dir = output_dir if output_dir is not None else PROCESSED_DIR
-    target_summaries_dir = target_processed_dir / "summaries"
+    target_summaries_dir = summary_dir if summary_dir is not None else target_processed_dir / "summaries"
     target_processed_dir.mkdir(parents=True, exist_ok=True)
     target_summaries_dir.mkdir(parents=True, exist_ok=True)
 
-    df_raw = load_raw_customers()
-    df_clean_v2 = clean_customers(df_raw)
-    validate_cleaned_customers(df_clean_v2, expected_rows=EXPECTED_ROWS)
+    if df_raw is None:
+        df_raw = load_raw_customers()
+    if df_clean_v2 is None:
+        df_clean_v2 = clean_customers(df_raw)
+    validate_cleaned_customers(df_clean_v2, expected_rows=len(df_raw))
 
     audit_df = build_cleaning_decisions_audit(df_raw, df_clean_v2)
     impact_df = compute_imputation_variance_impact(df_clean_v2)

@@ -3,7 +3,7 @@
 **Project:** Customer Messy Data EDA & Strategic Intelligence  
 **Author:** Levi Flores (`@levifvy`)  
 **Target Audience:** Chief Executive Officer (CEO), Chief Marketing Officer (CMO), Chief Technology Officer (CTO)  
-**Target Duration:** 5 minutes (710 spoken words at ~142 words/minute)  
+**Target Duration:** 5 minutes (678 spoken words at ~136 words/minute)  
 **Format:** Non-Technical Storytelling Slide Deck with Speaker Script  
 
 ---
@@ -12,12 +12,12 @@
 
 | Slide | Section / Objective | Time Window | Spoken Words | Primary Visual |
 |---|---|---|---|---|
-| **Slide 1** | **The Hook:** The 10,000 Customer Illusion | 0:00 – 0:45 | 110 words | Title Banner & Macro KPI Scorecard |
-| **Slide 2** | **The Reality:** Data Quality & The 40.7% Trap | 0:45 – 1:30 | 125 words | `m2_iqr_outlier_boxplots.png` |
-| **Slide 3** | **Finding 1 (`Q1`):** Who Are They? Urban Indian Concentration | 1:30 – 2:30 | 145 words | `a1_raw_vs_normalized_metrics.png` |
-| **Slide 4** | **Finding 2 (`Q2`):** What Do They Spend? The Uniform Spender | 2:30 – 3:30 | 140 words | `e5_bivariate_spend_by_demographics.png` |
-| **Slide 5** | **Finding 3 (`Q3`):** Do They Return? Retention & The Reachability Void | 3:30 – 4:15 | 115 words | `m6_signup_and_activity_trends.png` |
-| **Slide 6** | **The Ask:** 3 Strategic Recommendations & Financial Impact | 4:15 – 5:00 | 75 words | Roadmap Matrix & Closing Slide |
+| **Slide 1** | **The Hook:** The 10,000 Customer Illusion | 0:00 – 0:45 | 111 words | Title Banner & Macro KPI Scorecard |
+| **Slide 2** | **The Reality:** Data Quality & The 40.7% Trap | 0:45 – 1:30 | 111 words | `m2_iqr_outlier_boxplots.png` |
+| **Slide 3** | **Finding 1 (`Q1`):** Who Are They? Urban Indian Concentration | 1:30 – 2:30 | 154 words | `a1_raw_vs_normalized_metrics.png` |
+| **Slide 4** | **Finding 2 (`Q2`):** What Do They Spend? The Uniform Spender | 2:30 – 3:30 | 116 words | `e5_bivariate_spend_by_demographics.png` |
+| **Slide 5** | **Finding 3 (`Q3`):** Do They Return? Retention & The Reachability Void | 3:30 – 4:15 | 109 words | `m6_signup_and_activity_trends.png` |
+| **Slide 6** | **The Ask:** 3 Strategic Recommendations & Financial Impact | 4:15 – 5:00 | 77 words | Roadmap Matrix & Closing Slide |
 
 ---
 
@@ -25,8 +25,8 @@
 
 ### Slide 1: The 10,000 Customer Illusion
 - **Slide Title:** *Beyond the Headcount: What 10,000 Raw Records Actually Tell Us*
-- **Visual:** Executive KPI Scorecards — 10,000 Registered Records | $2,460 Median Spend | 44.0% Reachability.
-- **Timing:** `[0:00 – 0:45]` (45 seconds — 110 words)
+- **Visual:** Executive KPI Scorecards — 10,000 Registered Records | $2,460 Median Spend | 43.9% Reachability.
+- **Timing:** `[0:00 – 0:45]` (45 seconds — 111 words)
 
 > **Speaker Script:**  
 > "Good morning. When leadership looks at our database, the top-line number looks reassuring: 10,000 registered customer accounts. On paper, it suggests a thriving, mature digital business.
@@ -42,7 +42,7 @@
 ### Slide 2: The Reality: Cleaning the 40.7% Corruption Trap
 - **Slide Title:** *Data Integrity Audit: Separating Genuine Customers from Noise*
 - **Visual:** `![Data Cleaning & Outlier Remediation](../assets/charts/m2_iqr_outlier_boxplots.png)`
-- **Timing:** `[0:45 – 1:30]` (45 seconds — 125 words)
+- **Timing:** `[0:45 – 1:30]` (45 seconds — 111 words)
 
 > **Speaker Script:**  
 > "Our first breakthrough was forensic data cleaning. We found customers recorded as minus-5 years old, others supposedly aged 200, and thousands of purchase entries hardcoded as minus-999 or N/A. 
@@ -58,55 +58,55 @@
 ### Slide 3: Finding 1 (`Q1`): Who Are Our Customers?
 - **Slide Title:** *Demographic Discovery: The Urban Indian Power Base*
 - **Visual:** `![Normalized Geographic Metrics](../assets/charts/a1_raw_vs_normalized_metrics.png)`
-- **Timing:** `[1:30 – 2:30]` (60 seconds — 145 words)
+- **Timing:** `[1:30 – 2:30]` (60 seconds — 154 words)
 
 > **Speaker Script:**  
 > "First: Who are our customers, and where are they located?
 >
-> The data reveals that our active customer base is an established, middle-aged cohort, with a median age of 43.7 years, perfectly balanced between men and women. 
+> The data reveals that our active customer base is an established, middle-aged cohort, with a median age of 43 years (mean 43.7), evenly split between men (3,800) and women (3,745). 
 >
-> Geographically, our customer footprint is concentrated entirely across eight Tier-1 Indian metropolitan centers—led by Bangalore, Mumbai, and Delhi. While international country labels were mistakenly attached to many accounts in the raw files, every valid city tells a clear story: we are an urban Indian retail powerhouse.
+> Geographically, every known city is one of eight large Indian metropolitan centers, and the base is spread evenly across them: each holds between 1,056 and 1,144 accounts, led by Hyderabad, Mumbai and Pune. While international country labels were mistakenly attached to many accounts in the raw files, every valid city tells a clear story: we are an urban Indian retail powerhouse.
 >
-> Furthermore, when we normalize revenue per 1,000 customers, we see remarkable commercial consistency across cities: each metropolitan hub generates between 2.4 and 2.5 million dollars in annualized normalized spend. Our customers may live in different regions, but their commercial potential is uniformly high."
+> Furthermore, when we normalize revenue per 1,000 customers, we see remarkable commercial consistency across cities: each metropolitan hub generates between 2.29 million dollars (Kolkata) and 2.56 million dollars (Chennai) per 1,000 buyers, and that gap is not statistically significant. Our customers may live in different cities, but their commercial value is the same."
 
 ---
 
 ### Slide 4: Finding 2 (`Q2`): What Do They Spend?
 - **Slide Title:** *Commercial Analysis: High-Value Spenders Are Demographically Blind*
-- **Visual:** `![Spend by Demographics](../assets/charts/e5_bivariate_spend_by_segment.png)`
-- **Timing:** `[2:30 – 3:30]` (60 seconds — 140 words)
+- **Visual:** `![Spend by Demographics](../assets/charts/e5_bivariate_spend_by_demographics.png)`
+- **Timing:** `[2:30 – 3:30]` (60 seconds — 116 words)
 
 > **Speaker Script:**  
 > "Second: What drives customer spend, and who are our VIPs?
 >
 > Our typical buyer spends a median of $2,460 per transaction, with high spenders exceeding $3,500. But here is the most surprising takeaway for our marketing strategy: spend is virtually uncorrelated with age, gender, or city.
 >
-> Younger shoppers aged 18 to 29 spend with the exact same median ticket size as customers over 60. Men and women spend identical amounts across all categories. 
+> Younger shoppers aged 18 to 29 spend statistically the same as customers over 60, and men and women spend statistically the same amounts. 
 >
-> This means traditional demographic targeting is leaving money on the table. We should not be segmenting our marketing campaigns by age or gender. Instead, value is driven by commercial engagement: customers who purchase frequently and maintain multi-year tenure are our true profit engine, regardless of their demographic bracket."
+> This means traditional demographic targeting is leaving money on the table. We should not be segmenting our marketing campaigns by age or gender. Instead, the lever is the spend tier itself: 724 customers already spend above $3,500, and they deserve dedicated retention journeys regardless of their demographic bracket."
 
 ---
 
 ### Slide 5: Finding 3 (`Q3`): Do They Return?
 - **Slide Title:** *Customer Experience: The Reachability Void and The Rating Paradox*
 - **Visual:** `![Signup Cohorts and Activity Trends](../assets/charts/m6_signup_and_activity_trends.png)`
-- **Timing:** `[3:30 – 4:15]` (45 seconds — 115 words)
+- **Timing:** `[3:30 – 4:15]` (45 seconds — 109 words)
 
 > **Speaker Script:**  
 > "Third: Can we reach them, and are they satisfied?
 >
-> Here we uncover our largest operational risk. Fifty-six percent of our customer base is completely unreachable—they lack both a valid email and a working phone number. Only 6% have dual-channel contactability.
+> Here we uncover our largest operational risk. Fifty-six percent of our customer base is completely unreachable—they lack both a valid email and a working phone number. Only 6.3% can be reached on both channels.
 >
-> Furthermore, in customer satisfaction, half of all valid reviews recorded an anomalous score of 10 on a standard 1-to-5 survey scale, pointing to an automated survey glitch. Among genuine ratings on the 1-to-5 scale, the average score is 2.97, reflecting lukewarm sentiment.
+> Furthermore, in customer satisfaction, half of all valid reviews recorded an anomalous score of 10 on a standard 1-to-5 survey scale, most likely a survey-scale configuration error that we should confirm with the survey owner. Among genuine ratings on the 1-to-5 scale, the average score is 2.96, reflecting lukewarm sentiment.
 >
-> We have strong customer acquisition, but our retention bridge is broken because we cannot reliably communicate with over half our audience."
+> Our retention bridge is broken because we cannot reliably communicate with over half our audience."
 
 ---
 
 ### Slide 6: The Strategic Ask: 3 Actionable Recommendations
 - **Slide Title:** *Strategic Roadmap: Three Immediate Interventions*
 - **Visual:** Three-Pillar Action Plan Matrix with Department Owners & Expected Business Outcomes.
-- **Timing:** `[4:15 – 5:00]` (45 seconds — 75 words)
+- **Timing:** `[4:15 – 5:00]` (45 seconds — 77 words)
 
 > **Speaker Script:**  
 > "To monetize these discoveries, we propose three immediate initiatives:
