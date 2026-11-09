@@ -14,10 +14,14 @@ This project simulates a real-world data consulting engagement performing an end
 
 | Deliverable | Level | File |
 |---|---|---|
+| 💻 **Interactive Executive Dashboard** (Streamlit app with filters, scorecards & audit tabs) | Expert (`X2`) | [`app/dashboard.py`](app/dashboard.py) · Launch: `streamlit run app/dashboard.py` |
+| 🎙️ **5-Minute Storytelling Script** (Executive presentation script for non-technical audience) | Expert (`X5`) | [`reports/presentation.md`](reports/presentation.md) |
 | 📄 **CEO Executive Report** (1–2 pages, conclusions and supporting charts) | Medium (`M7`) | [**PDF**](reports/executive_report.pdf) · [Markdown](reports/executive_report.md) |
-| 📓 **EDA Notebook** (cleaning, analysis, charts, interpretations) | Essential → Medium | [`notebooks/01_eda_customers.ipynb`](notebooks/01_eda_customers.ipynb) |
-| 📊 **Charts** (300 DPI, named by task ID) | Essential → Medium | [`assets/charts/`](assets/charts/) |
-| 🧹 **Clean & enriched datasets** | Essential → Medium | [`data/processed/`](data/processed/) |
+| 🛡️ **Data Quality Audit Report** (Forensic quality audit, sentinels & flag catalog) | Expert (`X4`) | [`reports/data_quality_report.md`](reports/data_quality_report.md) |
+| 🧪 **Automated Pipeline & Test Suite** (End-to-end CLI pipeline & pytest unit tests) | Expert (`X1`, `X3`) | `python -m src.pipeline` · [`tests/`](tests/) |
+| 📓 **EDA Notebook** (cleaning, analysis, charts, interpretations) | Essential → Expert | [`notebooks/01_eda_customers.ipynb`](notebooks/01_eda_customers.ipynb) |
+| 📊 **Charts** (300 DPI, named by task ID) | Essential → Expert | [`assets/charts/`](assets/charts/) |
+| 🧹 **Clean & enriched datasets** | Essential → Expert | [`data/processed/`](data/processed/) |
 
 > The PDF is generated from the Markdown source with `python scripts/export_report_pdf.py`, which fails if the report exceeds 2 pages.
 
@@ -74,6 +78,25 @@ source EDA/bin/activate
 ### 📦 Installing Dependencies
 ```bash
 pip install -r requirements.txt
+```
+
+### 🚀 Quickstart & Execution Commands
+
+```bash
+# 1. Launch the interactive Streamlit executive dashboard (X2)
+streamlit run app/dashboard.py
+
+# 2. Execute the reproducible end-to-end data pipeline (X1)
+python -m src.pipeline
+
+# 3. Execute the automated unit test suite (X3, TDD)
+pytest
+
+# 4. Replay the full CI quality gate locally (Ruff, Flake8, nbformat, ontology contract, hygiene)
+python .github/scripts/run_local_ci.py
+
+# 5. Open and execute the primary EDA notebook
+jupyter notebook notebooks/01_eda_customers.ipynb
 ```
 
 ### 📋 Project #54 Automation
@@ -172,11 +195,13 @@ ai_project_EDA_Levi_Flores/
 ├── handoffs/                     # Per-task agent handoffs: <task_id>_<agent>.md
 │
 ├── notebooks/                    # Jupyter Notebooks for Exploratory Data Analysis
-│   └── 01_eda_customers.ipynb    # Core EDA notebook (Essential, Medium & Advanced levels)
+│   └── 01_eda_customers.ipynb    # Complete EDA notebook (Essential, Medium, Advanced & Expert levels)
 │
 ├── reports/                      # Data quality report, CEO report and presentation script
+│   ├── data_quality_report.md    # ISO/DAMA data quality audit report (X4)
 │   ├── executive_report.md       # CEO executive report (M7), source of truth
-│   └── executive_report.pdf      # Same report as a 2-page PDF (scripts/export_report_pdf.py)
+│   ├── executive_report.pdf      # Same report as a 2-page PDF (scripts/export_report_pdf.py)
+│   └── presentation.md           # 5-minute storytelling presentation script (X5)
 ├── specs/                        # Domain specification
 │   ├── README.md                 # Spec index and change-control rules
 │   └── ontology.md               # Single source of truth: schema, flags, features, KPIs
