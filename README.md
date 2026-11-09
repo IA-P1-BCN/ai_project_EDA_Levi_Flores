@@ -14,7 +14,7 @@ This project simulates a real-world data consulting engagement performing an end
 
 | Deliverable | Level | File |
 |---|---|---|
-| 💻 **Interactive Executive Dashboard** (Streamlit app: segment filters, KPI scorecards, one tab per business question, data-quality audit, methodology, CSV export) | Expert (`X2`) | [`app/dashboard.py`](app/dashboard.py) · Launch: `streamlit run app/dashboard.py` |
+| 💻 **Interactive Executive Dashboard** (Streamlit app: segment filters, KPI scorecards, one tab per business question, data-quality audit, methodology, CSV export, light/dark mode switch) | Expert (`X2`) | [`app/dashboard.py`](app/dashboard.py) · Launch: `streamlit run app/dashboard.py` |
 | 🎙️ **5-Minute Storytelling Script** (Executive presentation script for non-technical audience) | Expert (`X5`) | [`reports/presentation.md`](reports/presentation.md) |
 | 📄 **CEO Executive Report** (1–2 pages, conclusions and supporting charts) | Medium (`M7`) | [**PDF**](reports/executive_report.pdf) · [Markdown](reports/executive_report.md) |
 | 🛡️ **Data Quality Audit Report** (Forensic quality audit, sentinels & flag catalog) | Expert (`X4`) | [`reports/data_quality_report.md`](reports/data_quality_report.md) |
