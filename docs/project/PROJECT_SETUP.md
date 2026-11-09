@@ -63,7 +63,7 @@ gh label create "area:release" --color "FEF2C0" --description "Publication and f
 | Essential | 2026-11-06 | Tasks E1–E6. |
 | Medium | 2026-11-08 | Tasks M1–M7 and executive report. |
 | Advanced | 2026-11-09 | Tasks A1–A7. |
-| Expert | 2026-11-10 | Tasks X1–X6, quality report and public release. |
+| Expert | 2026-11-09 | Tasks X1–X6, quality report and public release. |
 
 ---
 
@@ -75,7 +75,7 @@ Create the fields in this exact order: **the order of the options defines the or
 |---|---|---|
 | `Status` | Single select | `Backlog`, `Ready`, `In Progress`, `Blocked`, `In Review`, `Done` |
 | `Level` | Single select | `Foundation`, `Essential`, `Medium`, `Advanced`, `Expert` |
-| `Day` | Single select | `Tue 03 Nov 2026`, `Wed 04 Nov 2026`, `Thu 05 Nov 2026`, `Fri 06 Nov 2026`, `Sat 07 Nov 2026`, `Sun 08 Nov 2026`, `Mon 09 Nov 2026`, `Tue 10 Nov 2026` |
+| `Day` | Single select | `Tue 03 Nov 2026`, `Wed 04 Nov 2026`, `Thu 05 Nov 2026`, `Fri 06 Nov 2026`, `Sat 07 Nov 2026`, `Sun 08 Nov 2026`, `Mon 09 Nov 2026` |
 | `Workstream` | Single select | `Setup`, `Data`, `Cleaning`, `Analysis`, `Visualization`, `Reporting`, `Engineering`, `Release`, `Management` |
 | `Priority` | Single select | `P0 - Critical`, `P1 - High`, `P2 - Normal` |
 | `Estimate` | Single select | `S - Up to 2 hours`, `M - 2 to 4 hours`, `L - 4 to 8 hours` |
@@ -135,11 +135,11 @@ The project has **four views** — two dedicated to development tasks (`Issues B
 | Layout | Board (`BOARD_LAYOUT`) |
 | Filter | `label:daily` |
 | Group by | `Day` |
-| Columns | `Tue 03 Nov 2026` → `Wed 04 Nov 2026` → `Thu 05 Nov 2026` → `Fri 06 Nov 2026` → `Sat 07 Nov 2026` → `Sun 08 Nov 2026` → `Mon 09 Nov 2026` → `Tue 10 Nov 2026` |
+| Columns | `Tue 03 Nov 2026` → `Wed 04 Nov 2026` → `Thu 05 Nov 2026` → `Fri 06 Nov 2026` → `Sat 07 Nov 2026` → `Sun 08 Nov 2026` → `Mon 09 Nov 2026` |
 | Sort | `Target date` (oldest first) |
 | Card fields | `Title`, `Day`, `Task ID`, `Status`, `Workstream`, `Start date`, `Target date`, `Assignees`, `Labels` |
 
-**Column meaning:** each column is one working day of the sprint (`D1` to `D8`). The card in a column is the daily log issue for that date. Daily logs record what was done, what is planned, blockers and decisions; they are not development tasks and therefore do not need a branch.
+**Column meaning:** each column is one working day of the sprint (`D1` to `D7`). The card in a column is the daily log issue for that date. Daily logs record what was done, what is planned, blockers and decisions; they are not development tasks and therefore do not need a branch.
 
 ### View 4 — `Daily Log Table` (Chronological Table for Dailys)
 
@@ -147,10 +147,10 @@ The project has **four views** — two dedicated to development tasks (`Issues B
 |---|---|
 | Layout | Table (`TABLE_LAYOUT`) |
 | Filter | `label:daily` |
-| Sort | `Target date` (oldest first: `2026-11-03` → `2026-11-10`) |
+| Sort | `Target date` (oldest first: `2026-11-03` → `2026-11-09`) |
 | Visible columns | `Title`, `Task ID`, `Day`, `Status`, `Workstream`, `Estimate`, `Start date`, `Target date`, `Assignees`, `Labels` |
 
-**Purpose:** provides a chronological log table of all 8 working days (`D1–D8`) for quick auditing of sprint progress and completion status.
+**Purpose:** provides a chronological log table of all 7 working days (`D1–D7`) for quick auditing of sprint progress and completion status.
 
 ---
 
@@ -191,13 +191,13 @@ Only two `Status` changes are manual: `Backlog` → `Ready` when a block is next
 8. Add each issue to the project and fill `Level`, `Day`, `Workstream`, `Priority`, `Estimate`, `Task ID`,
    `Branch`, `Start date` and `Target date`.
 9. Enable the workflows from section 5.
-10. Create the daily logs (`D1–D8`) with the **Daily Log** template and place each one in its date column.
+10. Create the daily logs (`D1–D7`) with the **Daily Log** template and place each one in its date column.
 
 ---
 
 ## 7. Daily routine
 
-The eight daily logs (`D1–D8`) already exist; do not create new ones.
+The seven daily logs (`D1–D7`) already exist; do not create new ones.
 
 **Start of day**
 

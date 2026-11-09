@@ -2,7 +2,7 @@
 
 **Project:** Exploratory Data Analysis of customer data
 **Author / sole developer:** Levi Flores (`@levifvy`)
-**Timeline:** Tuesday 3 November 2026 → Tuesday 10 November 2026
+**Timeline:** Tuesday 3 November 2026 → Monday 9 November 2026 (7 days)
 **Scope reference:** [`docs/Briefing.md`](Briefing.md)
 
 ---
@@ -94,14 +94,14 @@ Tasks are sequential. Each task ends with at least one commit in its branch and 
 
 | ID | Task | Description | Output | Date |
 |---|---|---|---|---|
-| X1 | Build a reproducible pipeline | One command loads the data, cleans it and saves the processed dataset. | `python -m src.pipeline` → CSV in `data/processed/`. | 10 Nov |
-| X2 | Build an interactive dashboard | Streamlit app with filters so the CEO can explore the data without code. | `app/dashboard.py` running locally. | 10 Nov |
-| X3 | Write tests | `pytest` tests for the cleaning functions, written **before** the implementation (TDD). | `tests/test_cleaning.py` passing. | 10 Nov |
-| X4 | Produce a data quality report | Summarise what was missing, what was fixed, what remains open and why. | `reports/data_quality_report.md`. | 10 Nov |
-| X5 | Prepare the presentation | 5-minute storytelling script for a non-technical audience, supported by 3–4 charts. | `reports/presentation.md` + slides. | 10 Nov |
-| X6 | Publish and close | Publish the dashboard or report at an accessible link; update README and `requirements.txt`. | Public link + final documentation. | 10 Nov |
+| X1 | Build a reproducible pipeline | One command loads the data, cleans it and saves the processed dataset. | `python -m src.pipeline` → CSV in `data/processed/`. | 9 Nov |
+| X2 | Build an interactive dashboard | Streamlit app with filters so the CEO can explore the data without code. | `app/dashboard.py` running locally. | 9 Nov |
+| X3 | Write tests | `pytest` tests for the cleaning functions, written **before** the implementation (TDD). | `tests/test_cleaning.py` passing. | 9 Nov |
+| X4 | Produce a data quality report | Summarise what was missing, what was fixed, what remains open and why. | `reports/data_quality_report.md`. | 9 Nov |
+| X5 | Prepare the presentation | 5-minute storytelling script for a non-technical audience, supported by 3–4 charts. | `reports/presentation.md` + slides. | 9 Nov |
+| X6 | Publish and close | Publish the dashboard or report at an accessible link; update README and `requirements.txt`. | Public link + final documentation. | 9 Nov |
 
-**Milestone:** Expert PRs merged and project released on **Tuesday 10 November**.
+**Milestone:** Expert PRs merged and project released on **Monday 9 November**.
 
 ---
 
@@ -115,14 +115,13 @@ Tasks are sequential. Each task ends with at least one commit in its branch and 
 | 6 Nov | Friday | Essential | E4–E6. | **Essential PR merged.** |
 | 7 Nov | Saturday | Medium | M1–M4. | Cleaning rationale, aggregations and features. |
 | 8 Nov | Sunday | Medium | M5–M7. | **Medium PR merged + executive report v1.** |
-| 9 Nov | Monday | Advanced | A1–A7. | **Advanced PR merged.** |
-| 10 Nov | Tuesday | Expert | X1–X6. | **Expert PRs merged + public release.** |
+| 9 Nov | Monday | Advanced + Expert | A1–A7, then X1, X3, X4 and X2, X5, X6. | **Advanced and Expert PRs merged + public release.** |
 
 **Schedule risk and priorities**
 
-- The last two days are intentionally compressed because they reuse the functions and datasets built earlier. Work inside each day in ID order.
+- The last day is intentionally compressed (Advanced and Expert) because it reuses the functions and datasets built earlier. Work inside each day in ID order.
 - If a blocker appears, protect the **Essential** and **Medium** deliverables first. Reduce scope in Advanced/Expert (for example, fewer dashboard filters or one interactive chart) rather than skipping documentation or quality checks.
-- Any spillover must stay within **Tuesday 10 November**; there is no planned work after that date.
+- Any spillover must stay within **Monday 9 November**; there is no planned work after that date.
 
 ---
 
@@ -147,8 +146,8 @@ Tasks are sequential. Each task ends with at least one commit in its branch and 
 | 4 | `feature/03-outliers-feature-engineering` | Cleaning rationale, outliers, aggregations and new features. | M1–M4 | 7 Nov | 7 Nov |
 | 5 | `feature/04-correlation-trends-report` | Correlation, temporal analysis and executive report. | M5–M7 | 8 Nov | 8 Nov |
 | 6 | `feature/05-advanced-analysis` | Normalisation, enrichment, quality audit, transformation, segments, plotly and reusable code. | A1–A7 | 9 Nov | 9 Nov |
-| 7 | `feature/06-pipeline-and-tests` | Reproducible pipeline, tests and data quality report. | X1, X3, X4 | 10 Nov | 10 Nov |
-| 8 | `feature/07-dashboard-and-release` | Dashboard, presentation and public release. | X2, X5, X6 | 10 Nov | 10 Nov |
+| 7 | `feature/06-pipeline-and-tests` | Reproducible pipeline, tests and data quality report. | X1, X3, X4 | 9 Nov | 9 Nov |
+| 8 | `feature/07-dashboard-and-release` | Dashboard, presentation and public release. | X2, X5, X6 | 9 Nov | 9 Nov |
 
 ---
 
