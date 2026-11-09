@@ -35,7 +35,7 @@ All 10,000 rows and 12 columns were kept. Coverage is uneven: age 24.7% (n = 2,4
 ![Cohort tenure against the observation window](../assets/charts/m6_cohort_tenure_censoring.png)
 
 - On the clean scale, n = 2,528 ratings of 1–5 average 2.96 (median 3.0), with 1,027 Detractors (40.6%) against 945 Promoters (37.4%); the 2,521 "10" ratings (49.9% of valid) are excluded as off-scale (KPI-6).
-- Only 4,388 accounts (43.9%) have one valid contact channel and 634 (6.3%) have both; the 5,612 unreachable accounts (56.1%) hold $3,388,004 — 56.1% of verified revenue, including 405 of 724 high-value customers ($1,713,463; KPI-4).
+- Only 4,388 accounts (43.9%) have at least one valid contact channel, and only 634 (6.3%) have both; the 5,612 unreachable accounts (56.1%) hold $3,388,004 — 56.1% of verified revenue, including 405 of 724 high-value customers ($1,713,463; KPI-4).
 - Tenure is not a retention signal: median is 638 days (n = 855, 8.6%), and cohort mean tenure falls from 920.3 days (2020, n = 124) to 127.0 (2025, n = 41; Spearman ρ = −1.00, a rank-trend test; p < 0.000001) while the observation window shrinks 1,920 → 207 days and the observed-to-window ratio stays flat at 0.479–0.614. That is right-censoring — recent customers had less time to buy — not evidence of faster churn.
 
 ## 4. Recommendations
