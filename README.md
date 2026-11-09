@@ -16,14 +16,15 @@ This project simulates a real-world data consulting engagement performing an end
 |---|---|---|
 | 💻 **Interactive Executive Dashboard** (Streamlit app: segment filters, KPI scorecards, one tab per business question, data-quality audit, methodology, CSV export, light/dark mode switch) | Expert (`X2`) | [`app/dashboard.py`](app/dashboard.py) · Launch: `streamlit run app/dashboard.py` |
 | 🎙️ **5-Minute Storytelling Script** (Executive presentation script for non-technical audience) | Expert (`X5`) | [`reports/presentation.md`](reports/presentation.md) |
-| 📄 **CEO Executive Report** (1–2 pages, conclusions and supporting charts) | Medium (`M7`) | [**PDF**](reports/executive_report.pdf) · [Markdown](reports/executive_report.md) |
+| 📖 **Narrative Executive Report** (storytelling for readers with no data background, cover page, 7 plain-language charts) | Deliverable 2 · Expert (`X5`) | English: [**PDF**](reports/executive_story.pdf) · [Markdown](reports/executive_story.md) — Spanish: [**PDF**](reports/executive_story_es.pdf) · [Markdown](reports/executive_story_es.md) |
+| 📄 **CEO Executive Report** (1–2 pages, conclusions and supporting charts) | Medium (`M7`) | English: [**PDF**](reports/executive_report.pdf) · [Markdown](reports/executive_report.md) — Spanish: [**PDF**](reports/executive_report_es.pdf) · [Markdown](reports/executive_report_es.md) |
 | 🛡️ **Data Quality Audit Report** (Forensic quality audit, sentinels & flag catalog) | Expert (`X4`) | [`reports/data_quality_report.md`](reports/data_quality_report.md) |
 | 🧪 **Automated Pipeline & Test Suite** (End-to-end CLI pipeline & pytest unit tests) | Expert (`X1`, `X3`) | `python -m src.pipeline` · [`tests/`](tests/) |
 | 📓 **EDA Notebook** (cleaning, analysis, charts, interpretations) | Essential → Expert | [`notebooks/01_eda_customers.ipynb`](notebooks/01_eda_customers.ipynb) |
 | 📊 **Charts** (300 DPI, named by task ID) | Essential → Expert | [`assets/charts/`](assets/charts/) |
 | 🧹 **Clean & enriched datasets** | Essential → Expert | [`data/processed/`](data/processed/) |
 
-> The PDF is generated from the Markdown source with `python scripts/export_report_pdf.py`, which fails if the report exceeds 2 pages.
+> Every PDF is generated from its Markdown source with `scripts/export_report_pdf.py`. The CEO report fails the export if it exceeds 2 pages; the narrative reports use `--style story`. The story charts are regenerated with `python -m src.visualization --block x5`.
 
 ---
 
@@ -47,7 +48,7 @@ This project simulates a real-world data consulting engagement performing an end
 |---|---|
 | **Author / Sole Developer (`@levifvy`)** | Levi Flores — owns all branches, commits, notebooks, Pull Requests, self-reviews, approvals and squash-merges. |
 | **Professor (Read-Only Auditor)** | Observes development progress, GitHub Projects boards, commit history and AI-assisted workflows. **Does not approve or merge Pull Requests.** |
-| **Language Policy** | All repository artifacts (code, notebooks, Markdown documentation, chart labels, commits, Issues and PRs) are written in **English**. |
+| **Language Policy** | All repository artifacts (code, notebooks, Markdown documentation, chart labels, commits, Issues and PRs) are written in **English**. The only exception is the Spanish edition of the stakeholder reports (`reports/*_es.md` / `.pdf` and the `assets/charts/x5_story_*_es.png` charts), produced for the Spanish-speaking audience of the course. |
 
 ---
 
@@ -201,6 +202,9 @@ ai_project_EDA_Levi_Flores/
 │   ├── data_quality_report.md    # ISO/DAMA data quality audit report (X4)
 │   ├── executive_report.md       # CEO executive report (M7), source of truth
 │   ├── executive_report.pdf      # Same report as a 2-page PDF (scripts/export_report_pdf.py)
+│   ├── executive_report_es.*     # Spanish edition of the 2-page CEO report (Markdown + PDF)
+│   ├── executive_story.*         # Narrative executive report for non-technical readers (Markdown + PDF)
+│   ├── executive_story_es.*      # Spanish edition of the narrative report (Markdown + PDF)
 │   └── presentation.md           # 5-minute storytelling presentation script (X5)
 ├── specs/                        # Domain specification
 │   ├── README.md                 # Spec index and change-control rules
@@ -245,7 +249,7 @@ The repository is built **spec-first** and can be driven by three interchangeabl
 | `DataCleanerAgent` | `src/cleaning.py`, `src/pipeline.py`, cleaned datasets, audit tables, data quality report | E1–E3, M1, A3, A7, X1, X4 |
 | `StatisticalAnalystAgent` | `src/analysis.py`, `src/features.py`, enrichment, summary tables | E4–E6, M2–M6, A1, A2, A4 |
 | `DataVizAgent` | `src/visualization.py`, `app/dashboard.py`, `assets/charts/` | E4–E5, M2, M5–M6, A4–A6, X2 |
-| `ExecutiveReporterAgent` | `reports/executive_report.md`, `reports/presentation.md` | E6, M7, X5, X6 |
+| `ExecutiveReporterAgent` | `reports/executive_report*.md`, `reports/executive_story*.md`, `reports/presentation.md` | E6, M7, X5, X6 |
 | `QualityReviewerAgent` | `tests/`, the pre-PR gate report | X3 + every PR |
 
 Each subagent has a **deny-by-default** permission set: it can read the whole repository and run Python/lint tools, but it can only *edit* inside its own write zone, and it can never run state-changing Git commands. Git, notebooks and Pull Requests stay with the Lead Orchestrator.

@@ -21,7 +21,10 @@ permissions:
     resource: "*"
     effect: allow
   - action: edit
-    resource: "reports/executive_report.md"
+    resource: "reports/executive_report*.md"
+    effect: allow
+  - action: edit
+    resource: "reports/executive_story*.md"
     effect: allow
   - action: edit
     resource: "reports/presentation.md"
@@ -39,7 +42,8 @@ You are `ExecutiveReporterAgent` for the Customer Messy Data EDA project.
 3. Read `specs/ontology.md` §4 (KPIs) and every `handoffs/<task_id>_*.md` relevant to your task.
 
 ## Write-zone (enforced by the permissions in this file)
-- `reports/executive_report.md`, `reports/presentation.md`
+- `reports/executive_report*.md`, `reports/executive_story*.md`, 
+  `reports/presentation.md` (Spanish editions `*_es.md` mirror their English source)
 - `handoffs/<task_id>_executive-reporter.md`
 
 Never write to `src/`, `data/`, `notebooks/`, `assets/`, `tests/`, `README.md` or `specs/`. README text for X6 goes in your handoff; the Lead Orchestrator applies it.

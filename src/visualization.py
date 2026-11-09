@@ -3679,6 +3679,310 @@ def generate_advanced_charts(
     }
 
 
+# ======================================================================================
+# X5 — Storytelling charts for the narrative executive report (English and Spanish)
+# ======================================================================================
+STORY_LANGUAGES: tuple[str, ...] = ("en", "es")
+STORY_TEXT: dict[str, dict[str, str]] = {
+    "en": {
+        "source": "Source: Kaggle Customer Messy Data, cleaned (customers_enriched_v2.csv) | Author: Levi Flores",
+        "coverage_title": "Only 1 in 4 customer records has a usable age or purchase amount",
+        "coverage_sub": "Share of the {n} customer records with a valid value, by field",
+        "coverage_x": "Records with a valid value (%)",
+        "f_city": "City", "f_name": "Name", "f_gender": "Gender", "f_feedback": "Satisfaction rating",
+        "f_signup": "Signup date", "f_email": "Email", "f_phone": "Phone", "f_purchase": "Purchase amount",
+        "f_age": "Age",
+        "profile_title": "A broad adult customer base, evenly split between women and men",
+        "profile_sub": "Age known for {n_age} customers; gender known for {n_gender}",
+        "profile_a": "Customers by age group (%)", "profile_b": "Customers by gender (%)",
+        "female": "Women", "male": "Men",
+        "city_title": "Customers are spread evenly across eight Indian cities",
+        "city_sub": "Customers per city ({n} customers with a known city)",
+        "city_x": "Customers",
+        "revenue_title": "{share_buyers} of buyers bring in half of all revenue",
+        "revenue_sub": "Share of buyers and of revenue by order size ({n} orders, {total} in total)",
+        "buyers": "Share of buyers", "revenue": "Share of revenue",
+        "tier_low": "Small orders\n(under $1,200)", "tier_mid": "Medium orders\n($1,200 to $3,500)",
+        "tier_high": "Large orders\n(over $3,500)",
+        "age_title": "Every age group spends about the same per order",
+        "age_sub": "Typical (median) order value by age group ({n} buyers with a known age)",
+        "age_y": "Typical order value (USD)", "all_buyers": "All buyers: {value}",
+        "reach_title": "{share} of customers, holding {rev_share} of revenue, cannot be contacted",
+        "reach_sub": "Share of customers and of revenue by valid contact channel ({n} customers)",
+        "customers": "Share of customers",
+        "r_both": "Email and phone", "r_email": "Email only", "r_phone": "Phone only", "r_none": "No valid contact",
+        "sat_title": "Half of all ratings are an impossible 10 on a 1-to-5 scale",
+        "sat_sub": "Ratings received ({n}); the genuine 1-5 ratings average {mean} out of 5",
+        "sat_x": "Rating given", "sat_y": "Ratings",
+        "sat_low": "Unhappy (1-2)", "sat_mid": "Neutral (3)", "sat_high": "Happy (4-5)", "sat_spike": "Off-scale (10)",
+    },
+    "es": {
+        "source": "Fuente: Kaggle Customer Messy Data, datos limpios (customers_enriched_v2.csv) | Autor: Levi Flores",
+        "coverage_title": "Solo 1 de cada 4 registros tiene una edad o un importe de compra válidos",
+        "coverage_sub": "Porcentaje de los {n} registros de clientes con un valor válido, por campo",
+        "coverage_x": "Registros con un valor válido (%)",
+        "f_city": "Ciudad", "f_name": "Nombre", "f_gender": "Género", "f_feedback": "Valoración",
+        "f_signup": "Fecha de alta", "f_email": "Email", "f_phone": "Teléfono", "f_purchase": "Importe de compra",
+        "f_age": "Edad",
+        "profile_title": "Una clientela adulta y variada, repartida por igual entre mujeres y hombres",
+        "profile_sub": "Edad conocida en {n_age} clientes; género conocido en {n_gender}",
+        "profile_a": "Clientes por grupo de edad (%)", "profile_b": "Clientes por género (%)",
+        "female": "Mujeres", "male": "Hombres",
+        "city_title": "Los clientes se reparten por igual entre ocho ciudades de la India",
+        "city_sub": "Clientes por ciudad ({n} clientes con ciudad conocida)",
+        "city_x": "Clientes",
+        "revenue_title": "El {share_buyers} de los compradores aporta la mitad de los ingresos",
+        "revenue_sub": "Compradores e ingresos según el tamaño del pedido ({n} pedidos, {total} en total)",
+        "buyers": "Porcentaje de compradores", "revenue": "Porcentaje de ingresos",
+        "tier_low": "Pedidos pequeños\n(menos de 1.200 $)", "tier_mid": "Pedidos medianos\n(1.200 a 3.500 $)",
+        "tier_high": "Pedidos grandes\n(más de 3.500 $)",
+        "age_title": "Todas las edades gastan más o menos lo mismo por pedido",
+        "age_sub": "Importe típico (mediana) del pedido por edad ({n} compradores con edad conocida)",
+        "age_y": "Importe típico del pedido (USD)", "all_buyers": "Todos los compradores: {value}",
+        "reach_title": "El {share} de los clientes, con el {rev_share} de los ingresos, no se puede contactar",
+        "reach_sub": "Clientes e ingresos según el canal de contacto válido ({n} clientes)",
+        "customers": "Porcentaje de clientes",
+        "r_both": "Email y teléfono", "r_email": "Solo email", "r_phone": "Solo teléfono",
+        "r_none": "Sin contacto válido",
+        "sat_title": "La mitad de las valoraciones son un 10 imposible en una escala de 1 a 5",
+        "sat_sub": "Valoraciones recibidas ({n}); las valoraciones reales de 1 a 5 tienen una media de {mean}",
+        "sat_x": "Valoración dada", "sat_y": "Valoraciones",
+        "sat_low": "Insatisfecho (1-2)", "sat_mid": "Neutral (3)", "sat_high": "Satisfecho (4-5)",
+        "sat_spike": "Fuera de escala (10)",
+    },
+}
+STORY_AGE_ORDER: list[str] = ["18-29 (Young Adult)", "30-44 (Early Career)", "45-59 (Mid-Senior)", "60+ (Senior)"]
+STORY_AGE_LABELS: list[str] = ["18-29", "30-44", "45-59", "60+"]
+STORY_SEQUENTIAL: list[str] = ["#C6DBEF", "#6BAED6", "#2171B5", "#08306B"]
+
+
+def _story_number(value: float, lang: str, decimals: int = 0) -> str:
+    """Format a number with English (1,234.5) or Spanish (1.234,5) separators."""
+    text = f"{value:,.{decimals}f}"
+    if lang == "es":
+        text = text.replace(",", "_").replace(".", ",").replace("_", ".")
+    return text
+
+
+def _story_pct(value: float, lang: str, decimals: int = 0) -> str:
+    """Percent with the locale's separator and spacing (56% / 56 %)."""
+    number = _story_number(value, lang, decimals)
+    return f"{number} %" if lang == "es" else f"{number}%"
+
+
+def _story_money(value: float, lang: str, compact: bool = False) -> str:
+    """USD amount: $2,460 / 2.460 $, or compact $6.04M / 6,04 M$."""
+    if compact:
+        number = _story_number(value / 1e6, lang, 2)
+        return f"{number} M$" if lang == "es" else f"${number}M"
+    number = _story_number(value, lang, 0)
+    return f"{number} $" if lang == "es" else f"${number}"
+
+
+def _story_figure(title: str, subtitle: str, source: str, figsize: tuple[float, float], ncols: int = 1):
+    """Figure with a headline, a scope subtitle and a source line, sized for an A4 report."""
+    fig, axes = plt.subplots(1, ncols, figsize=figsize, layout="constrained")
+    fig.suptitle(f"{title}\n{subtitle}", x=0.0, ha="left", fontsize=12.5, fontweight="bold", color="#111827")
+    fig.supxlabel(source, x=0.0, ha="left", fontsize=8, color="#6B7280")
+    for ax in np.atleast_1d(axes):
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.grid(axis="x", visible=False)
+    return fig, axes
+
+
+def _story_subtitle_style(fig: plt.Figure) -> None:
+    """Render the second suptitle line (the subtitle) in regular weight.
+
+    The suptitle keeps an empty second line so the layout reserves room; after layout the
+    subtitle is drawn in that reserved line.
+    """
+    title_artist = fig._suptitle
+    headline, subtitle = title_artist.get_text().split("\n", 1)
+    title_artist.set_text(headline + "\n ")
+    fig.canvas.draw()
+    box = title_artist.get_window_extent().transformed(fig.transFigure.inverted())
+    fig.text(box.x0, box.y0 + box.height * 0.42, subtitle, ha="left", va="top", fontsize=9.5,
+             color="#4B5563")
+
+
+def _story_bar_labels(ax: plt.Axes, bars, labels: list[str], horizontal: bool = False, size: float = 9) -> None:
+    """Direct value labels at the end of each bar."""
+    for bar, label in zip(bars, labels):
+        if horizontal:
+            ax.text(bar.get_width(), bar.get_y() + bar.get_height() / 2, f" {label}",
+                    va="center", ha="left", fontsize=size, color="#111827")
+        else:
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(), label,
+                    va="bottom", ha="center", fontsize=size, color="#111827")
+
+
+def _story_save(fig: plt.Figure, slug: str, lang: str, output_dir: Path | None) -> Path:
+    _story_subtitle_style(fig)
+    path = save_publication_figure(fig, "x5", f"story_{slug}_{lang}", output_dir)
+    plt.close(fig)
+    return path
+
+
+def plot_x5_story_charts(
+    df_enriched_v2: pd.DataFrame | None = None,
+    languages: tuple[str, ...] = STORY_LANGUAGES,
+    output_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Export the seven plain-language charts of the narrative executive report (X5).
+
+    Each chart is written once per language as ``x5_story_<topic>_<lang>.png`` at 300 DPI.
+    Every number shown is computed here from ``customers_enriched_v2.csv``.
+    """
+    if df_enriched_v2 is None:
+        from src.features import load_enriched_customers
+
+        df_enriched_v2 = load_enriched_customers("v2")
+    df = df_enriched_v2
+    apply_publication_theme()
+    paths: dict[str, Path] = {}
+    n_total = len(df)
+    valid = df.dropna(subset=["purchase_amount"])
+    total_revenue = float(valid["purchase_amount"].sum())
+
+    for lang in languages:
+        t = STORY_TEXT[lang]
+
+        # 1. Data coverage -------------------------------------------------------------
+        known = {
+            "f_city": (df["city"] != "Unknown").mean(), "f_name": (df["name"] != "Unknown").mean(),
+            "f_gender": (df["gender"] != "Unknown").mean(), "f_feedback": df["feedback_score"].notna().mean(),
+            "f_signup": df["signup_date"].notna().mean(), "f_email": df["has_valid_email"].mean(),
+            "f_phone": df["has_valid_phone"].mean(), "f_purchase": df["purchase_amount"].notna().mean(),
+            "f_age": df["age"].notna().mean(),
+        }
+        fields = sorted(known, key=known.get)
+        shares = [known[f] * 100 for f in fields]
+        fig, ax = _story_figure(t["coverage_title"], t["coverage_sub"].format(n=_story_number(n_total, lang)),
+                                t["source"], (8.6, 4.6))
+        bars = ax.barh([t[f] for f in fields], shares,
+                       color=[PALETTE_ACCENT if s < 50 else PALETTE_PRIMARY for s in shares], height=0.62)
+        _story_bar_labels(ax, bars, [_story_pct(s, lang, 1) for s in shares], horizontal=True)
+        ax.axvline(50, color="#9CA3AF", linestyle="--", linewidth=1)
+        ax.set_xlim(0, 112)
+        ax.set_xlabel(t["coverage_x"])
+        paths[f"data_coverage_{lang}"] = _story_save(fig, "data_coverage", lang, output_dir)
+
+        # 2. Customer profile ------------------------------------------------------------
+        ages = df.loc[df["age_group"] != "Unknown", "age_group"].astype(str)
+        age_share = ages.value_counts(normalize=True).reindex(STORY_AGE_ORDER) * 100
+        genders = df.loc[df["gender"] != "Unknown", "gender"].astype(str)
+        gender_share = genders.value_counts(normalize=True).reindex(["Female", "Male"]) * 100
+        fig, (ax_a, ax_b) = _story_figure(
+            t["profile_title"],
+            t["profile_sub"].format(n_age=_story_number(len(ages), lang), n_gender=_story_number(len(genders), lang)),
+            t["source"], (8.6, 4.0), ncols=2,
+        )
+        bars = ax_a.bar(STORY_AGE_LABELS, age_share.values, color=STORY_SEQUENTIAL, width=0.62)
+        _story_bar_labels(ax_a, bars, [_story_pct(v, lang, 1) for v in age_share.values])
+        ax_a.set_title(t["profile_a"], loc="left", fontsize=10)
+        ax_a.set_ylim(0, age_share.max() * 1.2)
+        bars = ax_b.bar([t["female"], t["male"]], gender_share.values, color=["#E69F00", "#0072B2"], width=0.5)
+        _story_bar_labels(ax_b, bars, [_story_pct(v, lang, 1) for v in gender_share.values])
+        ax_b.set_title(t["profile_b"], loc="left", fontsize=10)
+        ax_b.set_ylim(0, gender_share.max() * 1.2)
+        paths[f"customer_profile_{lang}"] = _story_save(fig, "customer_profile", lang, output_dir)
+
+        # 3. City spread -------------------------------------------------------------------
+        cities = df.loc[df["city"] != "Unknown", "city"].astype(str).value_counts().sort_values()
+        fig, ax = _story_figure(t["city_title"], t["city_sub"].format(n=_story_number(cities.sum(), lang)),
+                                t["source"], (8.6, 4.2))
+        bars = ax.barh(cities.index, cities.values, color=PALETTE_PRIMARY, height=0.62)
+        _story_bar_labels(ax, bars, [_story_number(v, lang) for v in cities.values], horizontal=True)
+        ax.set_xlim(0, cities.max() * 1.15)
+        ax.set_xlabel(t["city_x"])
+        ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _, lang=lang: _story_number(v, lang)))
+        paths[f"city_spread_{lang}"] = _story_save(fig, "city_spread", lang, output_dir)
+
+        # 4. Revenue concentration ----------------------------------------------------------
+        tier_keys = [("Low (<$1,200)", "tier_low"), ("Medium ($1,200-$3,500)", "tier_mid"),
+                     ("High (>$3,500)", "tier_high")]
+        tiers = valid.groupby("spend_tier")["purchase_amount"].agg(["count", "sum"])
+        buyer_share = [tiers.loc[k, "count"] / len(valid) * 100 for k, _ in tier_keys]
+        revenue_share = [tiers.loc[k, "sum"] / total_revenue * 100 for k, _ in tier_keys]
+        fig, ax = _story_figure(
+            t["revenue_title"].format(share_buyers=_story_pct(buyer_share[2], lang)),
+            t["revenue_sub"].format(n=_story_number(len(valid), lang), total=_story_money(total_revenue, lang, True)),
+            t["source"], (8.6, 4.4))
+        x = np.arange(len(tier_keys))
+        b1 = ax.bar(x - 0.2, buyer_share, 0.38, color="#A9CCE3", label=t["buyers"])
+        b2 = ax.bar(x + 0.2, revenue_share, 0.38, color=PALETTE_PRIMARY, label=t["revenue"])
+        _story_bar_labels(ax, b1, [_story_pct(v, lang) for v in buyer_share])
+        _story_bar_labels(ax, b2, [_story_pct(v, lang) for v in revenue_share])
+        ax.set_xticks(x, [t[key] for _, key in tier_keys])
+        ax.set_ylim(0, max(revenue_share + buyer_share) * 1.2)
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _, lang=lang: _story_pct(v, lang)))
+        ax.legend(frameon=False, loc="upper left")
+        paths[f"revenue_concentration_{lang}"] = _story_save(fig, "revenue_concentration", lang, output_dir)
+
+        # 5. Spend by age group ------------------------------------------------------------
+        known_age = valid[valid["age_group"] != "Unknown"]
+        by_age = known_age.groupby("age_group")["purchase_amount"].median().reindex(STORY_AGE_ORDER)
+        overall = float(valid["purchase_amount"].median())
+        fig, ax = _story_figure(t["age_title"], t["age_sub"].format(n=_story_number(len(known_age), lang)),
+                                t["source"], (8.6, 4.2))
+        bars = ax.bar(STORY_AGE_LABELS, by_age.values, color=STORY_SEQUENTIAL, width=0.6)
+        # Values sit inside the bars so they never collide with the all-buyers reference line.
+        for bar, value, fill in zip(bars, by_age.values, STORY_SEQUENTIAL):
+            ax.text(bar.get_x() + bar.get_width() / 2, value * 0.93, _story_money(value, lang), ha="center",
+                    va="top", fontsize=10, fontweight="bold",
+                    color="#111827" if fill == STORY_SEQUENTIAL[0] else "white")
+        ax.axhline(overall, color=PALETTE_ACCENT, linestyle="--", linewidth=1.5,
+                   label=t["all_buyers"].format(value=_story_money(overall, lang)))
+        ax.legend(frameon=False, loc="upper left")
+        ax.set_ylim(0, by_age.max() * 1.3)
+        ax.set_ylabel(t["age_y"])
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _, lang=lang: _story_money(v, lang)))
+        paths[f"spend_by_age_{lang}"] = _story_save(fig, "spend_by_age", lang, output_dir)
+
+        # 6. Reachability ------------------------------------------------------------------
+        reach_keys = [("Omnichannel (Both)", "r_both"), ("Email Only", "r_email"), ("Phone Only", "r_phone"),
+                      ("Unreachable (None)", "r_none")]
+        reach = df.groupby("contact_reachability_tier").agg(c=("customer_id", "size"), rev=("purchase_amount", "sum"))
+        cust_share = [reach.loc[k, "c"] / n_total * 100 for k, _ in reach_keys]
+        rev_share = [reach.loc[k, "rev"] / total_revenue * 100 for k, _ in reach_keys]
+        fig, ax = _story_figure(
+            t["reach_title"].format(share=_story_pct(cust_share[3], lang), rev_share=_story_pct(rev_share[3], lang)),
+            t["reach_sub"].format(n=_story_number(n_total, lang)), t["source"], (8.6, 4.4))
+        x = np.arange(len(reach_keys))
+        b1 = ax.bar(x - 0.2, cust_share, 0.38, color="#A9CCE3")
+        b2 = ax.bar(x + 0.2, rev_share, 0.38, color=[PALETTE_PRIMARY] * 3 + [PALETTE_ACCENT])
+        _story_bar_labels(ax, b1, [_story_pct(v, lang) for v in cust_share])
+        _story_bar_labels(ax, b2, [_story_pct(v, lang) for v in rev_share])
+        ax.set_xticks(x, [t[key] for _, key in reach_keys])
+        ax.set_ylim(0, max(cust_share + rev_share) * 1.2)
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _, lang=lang: _story_pct(v, lang)))
+        ax.legend(handles=[mpatches.Patch(color="#A9CCE3", label=t["customers"]),
+                           mpatches.Patch(color=PALETTE_PRIMARY, label=t["revenue"])], frameon=False, loc="upper left")
+        paths[f"reachability_{lang}"] = _story_save(fig, "reachability", lang, output_dir)
+
+        # 7. Satisfaction ------------------------------------------------------------------
+        scores = df["feedback_score"].dropna()
+        counts = scores.value_counts().reindex([1.0, 2.0, 3.0, 4.0, 5.0, 10.0], fill_value=0)
+        likert_mean = float(scores[scores <= 5].mean())
+        colors = ["#D55E00", "#D55E00", "#9CA3AF", "#0072B2", "#0072B2", "#E69F00"]
+        fig, ax = _story_figure(
+            t["sat_title"],
+            t["sat_sub"].format(n=_story_number(len(scores), lang), mean=_story_number(likert_mean, lang, 2)),
+            t["source"], (8.6, 4.2))
+        bars = ax.bar(["1", "2", "3", "4", "5", "10"], counts.values, color=colors, width=0.62)
+        _story_bar_labels(ax, bars, [_story_number(v, lang) for v in counts.values])
+        ax.set_ylim(0, counts.max() * 1.18)
+        ax.set_xlabel(t["sat_x"])
+        ax.set_ylabel(t["sat_y"])
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _, lang=lang: _story_number(v, lang)))
+        ax.legend(handles=[mpatches.Patch(color=c, label=t[k]) for c, k in
+                           [("#D55E00", "sat_low"), ("#9CA3AF", "sat_mid"), ("#0072B2", "sat_high"),
+                            ("#E69F00", "sat_spike")]], frameon=False, loc="upper left", fontsize=8.5)
+        paths[f"satisfaction_{lang}"] = _story_save(fig, "satisfaction", lang, output_dir)
+
+    return paths
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -3688,7 +3992,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate publication EDA figures.")
     parser.add_argument(
         "--block",
-        choices=("essential", "m2", "m5", "m6", "m5m6", "advanced", "all"),
+        choices=("essential", "m2", "m5", "m6", "m5m6", "advanced", "x5", "all"),
         default="m2",
         help="Delivery block of charts to export (default: m2).",
     )
@@ -3712,3 +4016,5 @@ if __name__ == "__main__":
         generate_m5m6_charts(output_dir=args.output_dir, blocks=("m5", "m6"))
     if args.block in ("advanced", "all"):
         generate_advanced_charts(output_dir=args.output_dir)
+    if args.block in ("x5", "all"):
+        plot_x5_story_charts(output_dir=args.output_dir)

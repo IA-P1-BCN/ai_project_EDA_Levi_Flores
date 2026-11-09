@@ -21,7 +21,7 @@ Transform a highly corrupted real-world customer dataset (`data/raw/messy_custom
 | **AI Orchestrator & Subagents** | Gemini Argon (Antigravity), Claude Code, OpenCode | Execute specialized data engineering, statistical analysis, visualization, reporting, and QA tasks under strict write-zone isolation and human validation. |
 
 ### 1.3 Technical Stack & Execution Environment
-- **Language Policy:** **100% Technical English** across all code, docstrings, notebook prose, chart titles/axes/annotations, commit messages, issue bodies, and PR descriptions.
+- **Language Policy:** **100% Technical English** across all code, docstrings, notebook prose, chart titles/axes/annotations, commit messages, issue bodies, and PR descriptions. **Single exception:** the Spanish edition of stakeholder reports (`reports/*_es.md` and their PDFs) and their charts (`assets/charts/x5_story_*_es.png`). Each Spanish file must mirror an English source with the same figures.
 - **Python Runtime:** `Python 3.12.10` inside the local isolated virtual environment `EDA` (`.\EDA\Scripts\python.exe` on Windows; `EDA/bin/python` on Linux/macOS).
 - **Core Libraries:** `pandas>=2.2.0`, `numpy>=1.26.0`, `scipy>=1.12.0`, `matplotlib>=3.8.0`, `seaborn>=0.13.0`, `plotly>=5.20.0`, `nbformat>=5.9.0`, `pytest`, `ruff`, `flake8`, `streamlit`.
 - **Canonical Domain Schema:** All agents MUST consult [`specs/ontology.md`](specs/ontology.md) before writing any data cleaning, imputation, filtering, or aggregation logic.
@@ -93,9 +93,9 @@ This repository is engineered so that **Google Antigravity (Gemini Argon)**, **C
 - **Required Skill:** [`.agents/skills/executive-reporting/SKILL.md`](.agents/skills/executive-reporting/SKILL.md) + [`specs/ontology.md`](specs/ontology.md) + [`docs/Work_Plan.md`](docs/Work_Plan.md).
 - **Core Responsibilities:**
   1. Synthesize quantitative outputs and exported charts from `assets/charts/` into C-level narratives answering the 3 core business questions (`Q1` Demographics & Geography, `Q2` Revenue & High-Value Segments, `Q3` Satisfaction, Retention & Reachability).
-  2. Author the 1–2 page CEO Executive Report (`reports/executive_report.md`) and the 5-minute non-technical presentation script (`reports/presentation.md`).
+  2. Author the 1–2 page CEO Executive Report (`reports/executive_report.md`), the narrative executive report for non-technical readers (`reports/executive_story.md`), their Spanish editions (`*_es.md`) and the 5-minute non-technical presentation script (`reports/presentation.md`).
   3. Quantify every claim with exact sample sizes ($n$), percentages, central tendency, and dispersion metrics, pairing each insight with an actionable business recommendation.
-- **Exclusive Write-Zone:** `reports/executive_report.md`, `reports/presentation.md`.
+- **Exclusive Write-Zone:** `reports/executive_report*.md`, `reports/executive_story*.md`, `reports/presentation.md`.
 
 ### 3.5 `QualityReviewerAgent` — TDD, CI/CD & Reproducibility Auditor
 - **Primary Tasks:** `X3`, plus continuous verification across every PR (`E1–X6`).
@@ -120,7 +120,7 @@ When two or more subagents run concurrently on the same workspace, each subagent
 | `DataCleanerAgent` | `src/cleaning.py`, `src/pipeline.py`, `data/processed/customers_clean_*.csv`, `data/processed/summaries/*.csv`, `reports/data_quality_report.md`, `handoffs/<task_id>_data-cleaner.md` | `data/raw/*`, `specs/*`, `docs/*` | `notebooks/*`, `assets/charts/*`, `tests/*` |
 | `StatisticalAnalystAgent` | `src/analysis.py`, `src/features.py`, `data/external/*`, `data/processed/customers_enriched_*.csv`, `data/processed/summaries/*.csv`, `handoffs/<task_id>_statistical-analyst.md` | `data/processed/customers_clean_*.csv`, `src/cleaning.py`, `specs/*` | `data/raw/*`, `notebooks/*`, `assets/charts/*` |
 | `DataVizAgent` | `src/visualization.py`, `app/dashboard.py`, `assets/charts/*`, `handoffs/<task_id>_data-viz.md` | `data/processed/*`, `src/cleaning.py`, `src/analysis.py`, `src/features.py`, `specs/*` | `data/raw/*`, `data/processed/*`, `notebooks/*` |
-| `ExecutiveReporterAgent` | `reports/executive_report.md`, `reports/presentation.md`, `handoffs/<task_id>_executive-reporter.md` | `data/processed/summaries/*`, `assets/charts/*`, `handoffs/*`, `notebooks/*` | `src/*`, `data/*`, `notebooks/*` |
+| `ExecutiveReporterAgent` | `reports/executive_report*.md`, `reports/executive_story*.md`, `reports/presentation.md`, `handoffs/<task_id>_executive-reporter.md` | `data/processed/summaries/*`, `assets/charts/*`, `handoffs/*`, `notebooks/*` | `src/*`, `data/*`, `notebooks/*` |
 | `QualityReviewerAgent` | `tests/test_*.py`, `tests/conftest.py` | Entire repository (`*`) | `data/raw/*`, `src/*`, `notebooks/*`, `reports/*` |
 | **Lead Orchestrator** | `notebooks/01_eda_customers.ipynb`, `README.md`, `requirements.txt`, `pyproject.toml`, Git & `gh` CLI | Entire repository (`*`) | `data/raw/messy_customer_data.csv`, `docs/Briefing.md` |
 
