@@ -27,7 +27,7 @@ a3_audit_df[[
 **Quantitative Interpretation (`Q1`, `Q2`, `Q3`):**
 - **Validity:** Out-of-bounds sentinels affect 49.59% of `Age` records (`-5` in 2,506 rows, `200` in 2,453 rows) and 50.34% of `purchase_amount` records (`-999` in 2,501 rows, `N/A` in 2,533 rows). Coercing these to `NaN` instead of imputing preserves the true variance ($SD = 15.34$ years vs $7.61$ imputed; $SD = \$1,442.83$ vs $\$720.59$ imputed).
 - **Consistency:** 49.23% of dual-date customer records ($829$ of $1,684$) suffer from chronological inversion (`last_purchase_date < signup_date`). Rather than dropping rows or computing negative tenures (ranging from $-1,960$ to $-1$ days), records are preserved and tenure is safely masked to `NaN` for inverted rows (`KPI-5`). Furthermore, 58.88% of records ($5,888$ rows) feature Indian metropolitan cities paired with non-Indian countries (`is_geo_mismatch`), confirming synthetic cross-field corruption.
-- **Accuracy & Uniqueness:** Primary key gaps affect 23.79% of rows ($2,379$ blank `CustomerID` cells), which are reconstructed into uniform `C00001`–`C10000` identifiers. The bimodal score 10 rating spike affects $2,521$ rows ($49.93\%$ of valid feedback scores) and is isolated via `feedback_score_1_to_5` to prevent distortion of genuine 1–5 customer satisfaction ratings ($mean = 2.97$).
+- **Accuracy & Uniqueness:** Primary key gaps affect 23.79% of rows ($2,379$ blank `CustomerID` cells), which are reconstructed into uniform `C00001`–`C10000` identifiers. The bimodal score 10 rating spike affects $2,521$ rows ($49.93\%$ of valid feedback scores) and is isolated via `feedback_score_1_to_5` to prevent distortion of genuine 1–5 customer satisfaction ratings ($mean = 2.96$).
 ```
 
 ## Key Findings

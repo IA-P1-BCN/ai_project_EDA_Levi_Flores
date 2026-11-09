@@ -14,7 +14,7 @@ This project simulates a real-world data consulting engagement performing an end
 
 | Deliverable | Level | File |
 |---|---|---|
-| 💻 **Interactive Executive Dashboard** (Streamlit app with filters, scorecards & audit tabs) | Expert (`X2`) | [`app/dashboard.py`](app/dashboard.py) · Launch: `streamlit run app/dashboard.py` |
+| 💻 **Interactive Executive Dashboard** (Streamlit app: segment filters, KPI scorecards, one tab per business question, data-quality audit, methodology, CSV export) | Expert (`X2`) | [`app/dashboard.py`](app/dashboard.py) · Launch: `streamlit run app/dashboard.py` |
 | 🎙️ **5-Minute Storytelling Script** (Executive presentation script for non-technical audience) | Expert (`X5`) | [`reports/presentation.md`](reports/presentation.md) |
 | 📄 **CEO Executive Report** (1–2 pages, conclusions and supporting charts) | Medium (`M7`) | [**PDF**](reports/executive_report.pdf) · [Markdown](reports/executive_report.md) |
 | 🛡️ **Data Quality Audit Report** (Forensic quality audit, sentinels & flag catalog) | Expert (`X4`) | [`reports/data_quality_report.md`](reports/data_quality_report.md) |
@@ -83,11 +83,11 @@ pip install -r requirements.txt
 ### 🚀 Quickstart & Execution Commands
 
 ```bash
-# 1. Launch the interactive Streamlit executive dashboard (X2)
+# 1. Launch the interactive Streamlit executive dashboard (X2); theme lives in .streamlit/config.toml
 streamlit run app/dashboard.py
 
 # 2. Execute the reproducible end-to-end data pipeline (X1)
-python -m src.pipeline
+python -m src.pipeline            # options: --quiet, --skip-summaries, --raw-path, --output-dir, --summary-dir
 
 # 3. Execute the automated unit test suite (X3, TDD)
 pytest

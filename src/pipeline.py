@@ -5,7 +5,8 @@ feature engineering, auxiliary geographic enrichment, and summary table exports.
 
 CLI Usage:
     python -m src.pipeline
-    python -m src.pipeline --verbose
+    python -m src.pipeline --quiet
+    python -m src.pipeline --skip-summaries
     python -m src.pipeline --output-dir custom_dir --raw-path custom_raw.csv
 """
 
@@ -135,8 +136,9 @@ def run_pipeline(
     if export_summaries:
         log("Step 5/6: Exporting comprehensive analytical summary tables...")
         # M1 and A3 quality audits
-        export_m1_artifacts(output_dir=proc_dir)
-        export_a3_artifacts(output_dir=proc_dir)
+        # Reuse the frames built above so --raw-path and --summary-dir are honoured.
+        export_m1_artifacts(output_dir=proc_dir, df_raw=df_raw, df_clean_v2=df_clean_v2, summary_dir=summ_dir)
+        export_a3_artifacts(output_dir=proc_dir, df_raw=df_raw, df_clean_v2=df_clean_v2, summary_dir=summ_dir)
 
         # Essential, Medium and Advanced summary tables
         export_essential_summaries(df_clean_v1, output_dir=summ_dir)

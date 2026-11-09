@@ -22,7 +22,7 @@ plt.close(fig_a5)
 
 - **Panel A — Spend Tiers by Reachability (The VIP Reachability Gap):** Visualizes the critical operational paradox: 405 out of 724 High-Tier spenders ($55.9\%$, representing $\$1.71\text{M}$ in revenue) are classified as `Unreachable (None)`, lacking both email and phone channels.
 - **Panel B — Order Value by Age Group & Gender:** Boxplots and mean markers demonstrate uniform central tendency and dispersion ($IQR \approx \$2,500$) across all age cohorts and genders, visually confirming demographic parity in transaction size.
-- **Panel C — Regional Monetization (KPI-3):** Compares revenue per 1,000 registered accounts across macroeconomic regions (West: $\$610\text{k}$, North: $\$611\text{k}$, South: $\$601\text{k}$, East: $\$581\text{k}$), proving that geographical monetization is consistent nationwide with satisfaction scores tightly clustered around 2.97.
+- **Panel C — Regional Monetization (KPI-3):** Compares revenue per 1,000 registered accounts across macroeconomic regions (West: $\$610\text{k}$, North: $\$611\text{k}$, South: $\$601\text{k}$, East: $\$581\text{k}$), proving that geographical monetization is consistent nationwide with satisfaction scores tightly clustered around 2.96.
 ```
 
 ## Key Findings

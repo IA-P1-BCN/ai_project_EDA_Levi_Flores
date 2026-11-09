@@ -47,3 +47,6 @@ htmlcov/
 
 # Claude Code per-user settings (shared config in .claude/agents and .claude/skills is tracked)
 .claude/settings.local.json
+
+# Streamlit local secrets (the shared theme in .streamlit/config.toml is tracked)
+.streamlit/secrets.toml
