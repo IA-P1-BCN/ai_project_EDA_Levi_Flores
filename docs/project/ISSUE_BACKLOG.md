@@ -2,7 +2,7 @@
 
 Complete list of issues for the project, aligned with [`docs/Work_Plan.md`](../Work_Plan.md) and the project design in [`PROJECT_SETUP.md`](PROJECT_SETUP.md).
 
-**Total:** 29 task issues (F1–F3, E1–E6, M1–M7, A1–A7, X1–X6) + 8 daily logs = **37 issues**, all tracked in Project `#54`.
+**Total:** 29 task issues (F1–F3, E1–E6, M1–M7, A1–A7, X1–X6) + 7 daily logs = **36 issues**, all tracked in Project `#54`.
 
 ---
 
@@ -84,22 +84,22 @@ Every issue in this repository follows a clean, executive Markdown layout featur
 
 ---
 
-## Expert — milestone `Expert` (due 2026-11-10)
+## Expert — milestone `Expert` (due 2026-11-09)
 
 | ID | Issue title | Date | Branch | Labels | Est. | Priority | Done when |
 |---|---|---|---|---|---|---|---|
-| X1 | `[X1] Build a reproducible pipeline` | 2026-11-10 | `feature/06-pipeline-and-tests` | `task`, `level:expert`, `area:engineering` | ![L](https://img.shields.io/badge/L-4--8h-0366d6?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | One command cleans the data and writes the processed dataset. |
-| X2 | `[X2] Build an interactive dashboard` | 2026-11-10 | `feature/07-dashboard-and-release` | `task`, `level:expert`, `area:engineering` | ![L](https://img.shields.io/badge/L-4--8h-0366d6?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | Streamlit app runs locally with working filters. |
-| X3 | `[X3] Write tests` | 2026-11-10 | `feature/06-pipeline-and-tests` | `task`, `level:expert`, `area:engineering` | ![M](https://img.shields.io/badge/M-2--4h-5319E7?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | Cleaning functions covered by `pytest` tests written before implementation. |
-| X4 | `[X4] Produce a data quality report` | 2026-11-10 | `feature/06-pipeline-and-tests` | `task`, `level:expert`, `area:reporting` | ![M](https://img.shields.io/badge/M-2--4h-5319E7?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | Missing data, fixes and open issues documented with reasons. |
-| X5 | `[X5] Prepare the presentation` | 2026-11-10 | `feature/07-dashboard-and-release` | `task`, `level:expert`, `area:reporting` | ![M](https://img.shields.io/badge/M-2--4h-5319E7?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | 5-minute storytelling script and slides for a non-technical audience. |
-| X6 | `[X6] Publish and close` | 2026-11-10 | `feature/07-dashboard-and-release` | `task`, `level:expert`, `area:release` | ![S](https://img.shields.io/badge/S-Up_to_2h-2ea44f?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | Public link published, README and `requirements.txt` updated. |
+| X1 | `[X1] Build a reproducible pipeline` | 2026-11-09 | `feature/06-pipeline-and-tests` | `task`, `level:expert`, `area:engineering` | ![L](https://img.shields.io/badge/L-4--8h-0366d6?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | One command cleans the data and writes the processed dataset. |
+| X2 | `[X2] Build an interactive dashboard` | 2026-11-09 | `feature/07-dashboard-and-release` | `task`, `level:expert`, `area:engineering` | ![L](https://img.shields.io/badge/L-4--8h-0366d6?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | Streamlit app runs locally with working filters. |
+| X3 | `[X3] Write tests` | 2026-11-09 | `feature/06-pipeline-and-tests` | `task`, `level:expert`, `area:engineering` | ![M](https://img.shields.io/badge/M-2--4h-5319E7?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | Cleaning functions covered by `pytest` tests written before implementation. |
+| X4 | `[X4] Produce a data quality report` | 2026-11-09 | `feature/06-pipeline-and-tests` | `task`, `level:expert`, `area:reporting` | ![M](https://img.shields.io/badge/M-2--4h-5319E7?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | Missing data, fixes and open issues documented with reasons. |
+| X5 | `[X5] Prepare the presentation` | 2026-11-09 | `feature/07-dashboard-and-release` | `task`, `level:expert`, `area:reporting` | ![M](https://img.shields.io/badge/M-2--4h-5319E7?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | 5-minute storytelling script and slides for a non-technical audience. |
+| X6 | `[X6] Publish and close` | 2026-11-09 | `feature/07-dashboard-and-release` | `task`, `level:expert`, `area:release` | ![S](https://img.shields.io/badge/S-Up_to_2h-2ea44f?style=flat-square) | ![P2](https://img.shields.io/badge/P2-yellow?style=flat-square) | Public link published, README and `requirements.txt` updated. |
 
 ---
 
 ## Daily logs — no milestone (one per working day)
 
-The eight daily logs were created up front. Every morning `project-sync.yml` moves today's log to `In Progress` and closes the earlier ones; the author adds the end-of-day update as a comment. Daily logs use the `daily` label and `Workstream = Management`; they do not need a branch.
+The seven daily logs (one per working day, 3–9 November) were created up front. Every morning `project-sync.yml` moves today's log to `In Progress` and closes the earlier ones; the author adds the end-of-day update as a comment. Daily logs use the `daily` label and `Workstream = Management`; they do not need a branch.
 
 | ID | Issue title | Date | Labels | Est. | Done when |
 |---|---|---|---|---|---|
@@ -110,4 +110,5 @@ The eight daily logs were created up front. Every morning `project-sync.yml` mov
 | D5 | `[DAILY] 2026-11-07` | 2026-11-07 | `daily` | ![S](https://img.shields.io/badge/S-Up_to_2h-2ea44f?style=flat-square) | Report completed and placed in the Sat 07 Nov column. |
 | D6 | `[DAILY] 2026-11-08` | 2026-11-08 | `daily` | ![S](https://img.shields.io/badge/S-Up_to_2h-2ea44f?style=flat-square) | Report completed and placed in the Sun 08 Nov column. |
 | D7 | `[DAILY] 2026-11-09` | 2026-11-09 | `daily` | ![S](https://img.shields.io/badge/S-Up_to_2h-2ea44f?style=flat-square) | Report completed and placed in the Mon 09 Nov column. |
-| D8 | `[DAILY] 2026-11-10` | 2026-11-10 | `daily` | ![S](https://img.shields.io/badge/S-Up_to_2h-2ea44f?style=flat-square) | Report completed and placed in the Tue 10 Nov column. |
+
+> A `[DAILY] 2026-11-10` log (#40) was created by mistake when the plan still ended on 10 November; it was closed as *not planned* and removed from the board when the plan was corrected to end on Monday 9 November.
