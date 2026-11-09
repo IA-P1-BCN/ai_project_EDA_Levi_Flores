@@ -1327,6 +1327,13 @@ def main() -> None:
 
     # ---- Sidebar -------------------------------------------------------------------
     with st.sidebar:
+        st.markdown("### Appearance")
+        st.toggle(
+            ":material/dark_mode: Dark mode",
+            key="dark_mode",
+            help="Switch the whole dashboard, including charts, between light and dark mode.",
+        )
+        st.divider()
         st.markdown("### Filters")
         st.caption("Leave a filter empty to include every value.")
         st.markdown("**Customer segment**")
@@ -1382,15 +1389,7 @@ def main() -> None:
          "Off-scale feedback": x_spike},
     )
     chips = "".join(f"<span class='chip'>{html.escape(a)}</span>" for a in active) or "<span>None — full customer base</span>"
-    chips_col, theme_col = st.columns([5, 1], vertical_alignment="center")
-    with chips_col:
-        st.markdown(f"<div class='chips'>Active filters: {chips}</div>", unsafe_allow_html=True)
-    with theme_col:
-        st.toggle(
-            ":material/dark_mode: Dark mode",
-            key="dark_mode",
-            help="Switch the whole dashboard, including charts, between light and dark mode.",
-        )
+    st.markdown(f"<div class='chips'>Active filters: {chips}</div>", unsafe_allow_html=True)
 
     if filtered_df.empty:
         st.warning("No customers match the current filters. Widen the selection or use **Reset all filters**.")
