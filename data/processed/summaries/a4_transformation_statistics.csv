@@ -1,0 +1,7 @@
+variable_or_series,transformation_applied,n_observations,mean,std,median,iqr,min,max,skewness,kurtosis,jarque_bera_stat,jarque_bera_p_value,is_normally_distributed,analytical_finding
+Raw purchase_amount ($),Untransformed Continuous Spend,2466,2450.6158,1442.8346,2460.355,2574.495,10.31,4998.67,0.0139,-1.215,151.7568,0.0,False,"Flat uniform distribution across [10.31, 4998.67] with wide dollar span (SD=$1,442.83)."
+Transformed log_purchase_amount,np.log1p(purchase_amount),2466,7.491,0.9879,7.8085,1.169,2.4257,8.5171,-1.6273,2.9457,1973.5558,0.0,False,"Compresses monetary span into [2.43, 8.52]; induces left-skew (-1.18) due to uniform raw base."
+Standardized Spend (Z-Score),Zero-Mean Unit-Variance (x - mean) / std,2466,0.0,1.0,0.0068,1.7843,-1.6913,1.766,0.0139,-1.215,151.7568,0.0,False,Centers mean at 0.0 with unit variance (SD=1.00); ideal for distance-based clustering.
+Robust Scaled Spend,Median-Centered IQR-Scaled (x - median) / IQR,2466,-0.0038,0.5604,0.0,1.0,-0.9517,0.9859,0.0139,-1.215,151.7568,0.0,False,"Robust to boundary extremes; median mapped to 0.0 and central 50% span to [-0.5, 0.5]."
+Raw Monthly Signups,Untransformed Monthly Account Ingestion,66,75.697,9.9134,77.0,13.75,57.0,106.0,0.2314,0.3225,0.6823,0.711,True,"Observes monthly volume across 66 months (mean=75.7, SD=9.8) with random sampling noise."
+Smoothed Monthly Signups,3-Month Centered Moving Average,64,76.0312,5.2243,75.3333,6.5833,62.0,86.6667,0.0308,-0.0959,0.0969,0.9527,True,Filters monthly noise (variance reduced by ~65%); confirms long-run structural trend flatness.

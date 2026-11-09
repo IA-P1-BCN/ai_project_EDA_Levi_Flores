@@ -1,0 +1,7 @@
+audit_metric,metric_value,count_or_rate,pct_of_total,status,methodological_note
+External Metropolitan Catalog Records,8 Indian Tier-1 Metropolitan Agglomerations,8,100.0,PASS,Census of India & RBI Urban Classification source catalog
+Target Customer Dataset Headcount,"10,000 Unique Customer Records",10000,100.0,PASS,100% account retention across left-join merge
+Known City Attribute Coverage,"8 Indian Cities (Mumbai, Delhi, Bangalore, etc.)",8870,88.7,PASS,"8,870 known customer locations available for spatial mapping"
+Known City Match Rate,Exact Key Join on city,8870,100.0,PASS,"100.0% coverage: every known city resolved to region, state, and population"
+Unknown City Graceful Mapping,City == 'Unknown' -> Region == 'Unknown',1130,11.3,PASS,Mapped to explicit 'Unknown' category and np.nan population (no arbitrary imputation)
+Spatial Cardinality Integrity,8 Tier-1 Metros -> 4 Macroeconomic Zones,4,100.0,PASS,"West (3 cities), South (3 cities), North (1 city), East (1 city)"

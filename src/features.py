@@ -25,9 +25,26 @@ from src.analysis import (
     load_clean_customers,
 )
 
+REPO_ROOT: Path = Path(__file__).resolve().parents[1]
+EXTERNAL_CITIES_PATH: Path = REPO_ROOT / "data" / "external" / "indian_cities_metadata.csv"
 ENRICHED_V1_FILENAME: str = "customers_enriched_v1.csv"
+ENRICHED_V2_FILENAME: str = "customers_enriched_v2.csv"
 M4_SUMMARY_FILENAME: str = "m4_engineered_features_summary.csv"
 EXPECTED_ROWS: int = 10_000
+
+METRO_REGION_CATEGORIES: list[str] = ["West", "South", "North", "East", "Unknown"]
+METRO_STATE_CATEGORIES: list[str] = [
+    "Maharashtra",
+    "Delhi (NCR)",
+    "Karnataka",
+    "Telangana",
+    "Gujarat",
+    "Tamil Nadu",
+    "West Bengal",
+    "Unknown",
+]
+
+A2_FEATURE_COLUMNS: tuple[str, ...] = ("metro_region", "metro_state", "metro_population_m")
 
 SPEND_TIER_CATEGORIES: list[str] = [
     "Low (<$1,200)",
@@ -78,6 +95,7 @@ ENGINEERED_COLUMNS: tuple[str, ...] = (
 )
 
 ENRICHED_V1_COLUMNS: tuple[str, ...] = (*V2_BASE_COLUMNS, *ENGINEERED_COLUMNS)
+ENRICHED_V2_COLUMNS: tuple[str, ...] = (*ENRICHED_V1_COLUMNS, *A2_FEATURE_COLUMNS)
 
 
 def _r4(value: float) -> float:
@@ -93,6 +111,57 @@ def _cast_categorical(series: pd.Series, categories: list[str], ordered: bool) -
     return series.astype("str").where(series.notna(), np.nan).astype(
         pd.CategoricalDtype(categories=all_cats, ordered=ordered)
     )
+
+
+def enrich_with_external_metro_data(
+    df: pd.DataFrame,
+    external_path: Path | str | None = None,
+) -> pd.DataFrame:
+    """Enrich customer DataFrame with auxiliary Indian metropolitan metadata (A2).
+
+    Performs left join on ``city`` against ``indian_cities_metadata.csv``, adding
+    ``metro_region``, ``metro_state``, and ``metro_population_m``. Missing and
+    unmatched records map cleanly to 'Unknown' and np.nan population, preserving 100%
+    of records without dropping or distorting customer observations.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with a ``city`` column.
+    external_path : Path | str | None, optional
+        Path to ``indian_cities_metadata.csv``. Defaults to ``EXTERNAL_CITIES_PATH``.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame augmented with the 3 A2 enriched columns.
+    """
+    path = Path(external_path) if external_path is not None else EXTERNAL_CITIES_PATH
+    if not path.exists():
+        raise FileNotFoundError(f"External metropolitan metadata not found: {path}")
+
+    ext_df = pd.read_csv(path)
+    required_cols = {"city", "metro_region", "metro_state", "metro_population_m"}
+    if not required_cols.issubset(ext_df.columns):
+        raise ValueError(f"External file missing required columns: {required_cols - set(ext_df.columns)}")
+
+    merged = df.merge(
+        ext_df[["city", "metro_region", "metro_state", "metro_population_m"]],
+        on="city",
+        how="left",
+    )
+    merged["metro_region"] = _cast_categorical(
+        merged["metro_region"].fillna("Unknown"),
+        METRO_REGION_CATEGORIES,
+        ordered=True,
+    )
+    merged["metro_state"] = _cast_categorical(
+        merged["metro_state"].fillna("Unknown"),
+        METRO_STATE_CATEGORIES,
+        ordered=False,
+    )
+    merged["metro_population_m"] = merged["metro_population_m"].astype("float64")
+    return merged
 
 
 def engineer_features(df_clean: pd.DataFrame) -> pd.DataFrame:
@@ -194,13 +263,22 @@ def engineer_features(df_clean: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def validate_enriched_customers(df: pd.DataFrame, *, expected_rows: int | None = EXPECTED_ROWS) -> None:
-    """Assert 27-column enriched schema, ordered categorical completeness, and numeric invariants."""
+def validate_enriched_customers(
+    df: pd.DataFrame,
+    *,
+    expected_rows: int | None = EXPECTED_ROWS,
+    version: str = "v1",
+) -> None:
+    """Assert enriched schema, ordered categorical completeness, and numeric invariants."""
     if expected_rows is not None:
         assert len(df) == expected_rows, f"Expected {expected_rows:,} rows, got {len(df):,}"
     assert len(df) > 0, "Enriched DataFrame must not be empty"
-    assert list(df.columns) == list(ENRICHED_V1_COLUMNS), (
-        f"Enriched columns mismatch expected 27-column contract: {list(df.columns)}"
+
+    expected_cols = list(
+        ENRICHED_V2_COLUMNS if (version == "v2" or "metro_region" in df.columns) else ENRICHED_V1_COLUMNS
+    )
+    assert list(df.columns) == expected_cols, (
+        f"Enriched columns mismatch expected schema contract: {list(df.columns)}"
     )
 
     tier_contracts: list[tuple[str, list[str]]] = [
@@ -209,6 +287,9 @@ def validate_enriched_customers(df: pd.DataFrame, *, expected_rows: int | None =
         ("feedback_tier", FEEDBACK_TIER_CATEGORIES),
         ("contact_reachability_tier", REACHABILITY_TIER_CATEGORIES),
     ]
+    if "metro_region" in df.columns:
+        tier_contracts.append(("metro_region", METRO_REGION_CATEGORIES))
+
     for col, expected_cats in tier_contracts:
         assert df[col].notna().all(), f"Ordered categorical tier '{col}' must contain zero nulls"
         assert isinstance(df[col].dtype, pd.CategoricalDtype) and df[col].cat.ordered, (
@@ -216,6 +297,21 @@ def validate_enriched_customers(df: pd.DataFrame, *, expected_rows: int | None =
         )
         assert list(df[col].cat.categories) == expected_cats, (
             f"Categories for '{col}' mismatch ontology: {list(df[col].cat.categories)}"
+        )
+
+    if "metro_state" in df.columns:
+        assert df["metro_state"].notna().all(), "metro_state must contain zero nulls"
+        assert isinstance(df["metro_state"].dtype, pd.CategoricalDtype), (
+            "Column 'metro_state' must be a pandas Categorical"
+        )
+
+    if "metro_population_m" in df.columns:
+        known_pop = df.loc[df["city"] != "Unknown", "metro_population_m"]
+        assert known_pop.notna().all() and (known_pop > 0).all(), (
+            "Known cities must have valid positive metropolitan population numbers"
+        )
+        assert df.loc[df["city"] == "Unknown", "metro_population_m"].isna().all(), (
+            "Unknown cities must have NaN metropolitan population numbers"
         )
 
     valid_tenure = df["customer_tenure_days"].dropna()
@@ -234,10 +330,16 @@ def validate_enriched_customers(df: pd.DataFrame, *, expected_rows: int | None =
 
 
 def load_enriched_customers(version: str = "v1", processed_dir: Path | None = None) -> pd.DataFrame:
-    """Load ``data/processed/customers_enriched_{version}.csv`` restoring canonical 27-column dtypes."""
+    """Load ``data/processed/customers_enriched_{version}.csv`` restoring canonical dtypes."""
     base_dir = processed_dir if processed_dir is not None else PROCESSED_DIR
     csv_path = base_dir / f"customers_enriched_{version}.csv"
     if not csv_path.exists():
+        if version == "v2":
+            v1_df = load_enriched_customers("v1", processed_dir=base_dir)
+            v2_df = enrich_with_external_metro_data(v1_df)
+            validate_enriched_customers(v2_df, expected_rows=EXPECTED_ROWS, version="v2")
+            v2_df.to_csv(csv_path, index=False)
+            return v2_df
         raise FileNotFoundError(f"Enriched customer dataset not found: {csv_path}")
 
     dtype_map: dict[str, str] = {
@@ -260,6 +362,11 @@ def load_enriched_customers(version: str = "v1", processed_dir: Path | None = No
         "customer_tenure_days": "float64",
         "log_purchase_amount": "float64",
     }
+    if version == "v2":
+        dtype_map["metro_region"] = "str"
+        dtype_map["metro_state"] = "str"
+        dtype_map["metro_population_m"] = "float64"
+
     df = pd.read_csv(csv_path, dtype=dtype_map, keep_default_na=True)
 
     for date_col in ("signup_date", "last_purchase_date"):
@@ -280,8 +387,13 @@ def load_enriched_customers(version: str = "v1", processed_dir: Path | None = No
         df["contact_reachability_tier"], REACHABILITY_TIER_CATEGORIES, ordered=True
     )
 
+    if "metro_region" in df.columns:
+        df["metro_region"] = _cast_categorical(df["metro_region"], METRO_REGION_CATEGORIES, ordered=True)
+    if "metro_state" in df.columns:
+        df["metro_state"] = _cast_categorical(df["metro_state"], METRO_STATE_CATEGORIES, ordered=False)
+
     expected = EXPECTED_ROWS if len(df) == EXPECTED_ROWS else len(df)
-    validate_enriched_customers(df, expected_rows=expected)
+    validate_enriched_customers(df, expected_rows=expected, version=version)
     return df
 
 
@@ -439,7 +551,23 @@ def export_m4_features(output_dir: Path | None = None) -> dict[str, Path]:
     }
 
 
+def export_a2_features(output_dir: Path | None = None) -> dict[str, Path]:
+    """Generate and write ``customers_enriched_v2.csv`` deterministically (A2)."""
+    target_processed_dir = output_dir if output_dir is not None else PROCESSED_DIR
+    target_processed_dir.mkdir(parents=True, exist_ok=True)
+
+    df_v2 = load_clean_customers("v2")
+    df_enriched_v1 = engineer_features(df_v2)
+    df_enriched_v2 = enrich_with_external_metro_data(df_enriched_v1)
+    validate_enriched_customers(df_enriched_v2, expected_rows=EXPECTED_ROWS, version="v2")
+
+    enriched_v2_path = target_processed_dir / ENRICHED_V2_FILENAME
+    df_enriched_v2.to_csv(enriched_v2_path, index=False)
+
+    return {"customers_enriched_v2": enriched_v2_path}
+
+
 if __name__ == "__main__":
-    exported = export_m4_features()
+    exported = {**export_m4_features(), **export_a2_features()}
     for name, path in exported.items():
         print(f"Exported {name}: {path}")

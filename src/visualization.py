@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 import seaborn as sns
 from scipy import stats
 
@@ -3107,6 +3109,571 @@ def generate_m5m6_charts(
     return exported
 
 
+def plot_a1_raw_vs_normalized_metrics(
+    df_enriched: pd.DataFrame | None = None,
+    save: bool = True,
+    output_dir: Path | None = None,
+) -> plt.Figure:
+    """Plot dual-panel comparison of Raw Total Spend vs Normalized Revenue per 1,000 Customers (A1).
+
+    Panel A shows raw revenue ($ Millions) across Gender and Age Groups, heavily distorted by headcount.
+    Panel B shows normalized revenue ($ Thousands per 1,000 accounts) demonstrating per-capita parity.
+    """
+    apply_publication_theme()
+    if df_enriched is None:
+        from src.features import load_enriched_customers
+
+        df_enriched = load_enriched_customers("v2")
+
+    from src.analysis import compute_a1_normalized_metrics_comparison
+
+    norm_df = compute_a1_normalized_metrics_comparison(df_enriched)
+
+    gender_slice = norm_df[norm_df["dimension"] == "gender"].copy()
+    age_slice = norm_df[norm_df["dimension"] == "age_group"].copy()
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6.2))
+
+    cohort_labels = [f"Gender: {r['segment_value']}" for _, r in gender_slice.iterrows()] + [
+        f"Age: {r['segment_value']}" for _, r in age_slice.iterrows()
+    ]
+    raw_revenues_m = [r["raw_total_revenue_usd"] / 1e6 for _, r in gender_slice.iterrows()] + [
+        r["raw_total_revenue_usd"] / 1e6 for _, r in age_slice.iterrows()
+    ]
+    headcounts = [r["total_headcount"] for _, r in gender_slice.iterrows()] + [
+        r["total_headcount"] for _, r in age_slice.iterrows()
+    ]
+
+    y_pos = np.arange(len(cohort_labels))
+    colors_panel_a = [
+        PALETTE_PRIMARY if i < len(gender_slice) else PALETTE_SECONDARY
+        for i in range(len(cohort_labels))
+    ]
+
+    bars1 = ax1.barh(y_pos, raw_revenues_m, color=colors_panel_a, alpha=0.88, height=0.65)
+    ax1.set_yticks(y_pos)
+    ax1.set_yticklabels(cohort_labels, fontweight="bold")
+    ax1.invert_yaxis()
+    ax1.set_xlabel("Raw Aggregate Revenue ($ Millions USD)")
+    ax1.set_title("Panel A: Raw Total Revenue (Distorted by Cohort Headcount)", fontsize=11.5, pad=12)
+    ax1.set_xlim(0, max(raw_revenues_m) * 1.35)
+    ax1.xaxis.set_major_formatter(mticker.FormatStrFormatter("$%.2fM"))
+
+    for bar, rev, n in zip(bars1, raw_revenues_m, headcounts, strict=False):
+        ax1.text(
+            bar.get_width() + 0.04,
+            bar.get_y() + bar.get_height() / 2,
+            f"${rev:.2f}M (n={n:,})",
+            va="center",
+            ha="left",
+            fontsize=8.5,
+            fontweight="bold",
+            color="#222222",
+        )
+
+    norm_revenues_k = [r["revenue_per_1k_registered_usd"] / 1e3 for _, r in gender_slice.iterrows()] + [
+        r["revenue_per_1k_registered_usd"] / 1e3 for _, r in age_slice.iterrows()
+    ]
+    colors_panel_b = [
+        PALETTE_TEAL if i < len(gender_slice) else "#27AE60"
+        for i in range(len(cohort_labels))
+    ]
+
+    bars2 = ax2.barh(y_pos, norm_revenues_k, color=colors_panel_b, alpha=0.88, height=0.65)
+    ax2.set_yticks(y_pos)
+    ax2.set_yticklabels([])
+    ax2.invert_yaxis()
+    ax2.set_xlabel("Normalized Revenue per 1,000 Registered Customers ($ Thousands USD)")
+    ax2.set_title("Panel B: Normalized Metric (KPI-3 Eliminates Headcount Bias)", fontsize=11.5, pad=12)
+    ax2.set_xlim(0, max(norm_revenues_k) * 1.35)
+    ax2.xaxis.set_major_formatter(mticker.FormatStrFormatter("$%.0fk"))
+
+    benchmark_k = 604.3218
+    ax2.axvline(
+        benchmark_k,
+        color=PALETTE_ACCENT,
+        linestyle="--",
+        linewidth=1.5,
+        label=f"Population Baseline (${benchmark_k:.1f}k)",
+    )
+    ax2.legend(loc="lower right", frameon=True)
+
+    for bar, norm_val in zip(bars2, norm_revenues_k, strict=False):
+        ax2.text(
+            bar.get_width() + 10.0,
+            bar.get_y() + bar.get_height() / 2,
+            f"${norm_val:.1f}k / 1k",
+            va="center",
+            ha="left",
+            fontsize=8.5,
+            fontweight="bold",
+            color="#222222",
+        )
+
+    plt.tight_layout(rect=[0.01, 0.04, 0.99, 0.90])
+    _add_publication_chrome(
+        fig=fig,
+        title="Raw Totals Mask Uniform Spending: Revenue per 1,000 Customers Collapses Demography Disparities",
+        subtitle="Evaluating Raw Total Revenue vs Normalized KPI-3 (Revenue / 1,000 Accounts) across Gender and Age Cohorts | n = 10,000 records",
+        title_y=0.98,
+        subtitle_y=0.935,
+        source_caption="Source: Customer Messy Data (customers_enriched_v2.csv) | Author: @levifvy",
+    )
+
+    if save:
+        save_publication_figure(fig, "a1", "raw_vs_normalized_metrics", output_dir=output_dir)
+    return fig
+
+
+def plot_a4_transformation_before_after(
+    df_enriched: pd.DataFrame | None = None,
+    save: bool = True,
+    output_dir: Path | None = None,
+) -> plt.Figure:
+    """Plot 4-panel figure evaluating monetary log-transform and time series noise filtering (A4)."""
+    apply_publication_theme()
+    if df_enriched is None:
+        from src.features import load_enriched_customers
+
+        df_enriched = load_enriched_customers("v2")
+
+    amt = df_enriched["purchase_amount"].dropna().astype("float64")
+    log_amt = df_enriched["log_purchase_amount"].dropna().astype("float64")
+
+    monthly_signups = (
+        df_enriched.loc[df_enriched["signup_date"].notna(), "signup_date"]
+        .dt.to_period("M")
+        .value_counts()
+        .sort_index()
+        .astype("float64")
+    )
+    monthly_smoothed = monthly_signups.rolling(window=3, center=True).mean().dropna()
+
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 10.5))
+
+    sns.histplot(amt, bins=25, kde=True, ax=ax1, color=PALETTE_PRIMARY, stat="density", alpha=0.55)
+    mean_amt, med_amt = float(amt.mean()), float(amt.median())
+    ax1.axvline(mean_amt, color=PALETTE_ACCENT, linestyle="--", linewidth=1.8, label=f"Mean: ${mean_amt:,.2f}")
+    ax1.axvline(med_amt, color=PALETTE_TEAL, linestyle="-.", linewidth=1.8, label=f"Median: ${med_amt:,.2f}")
+    ax1.set_title("Panel A: Raw Spend (Uniform Distribution Across $10–$5,000)", fontsize=11, fontweight="bold")
+    ax1.set_xlabel("Purchase Amount (USD $)")
+    ax1.set_ylabel("Probability Density")
+    ax1.xaxis.set_major_formatter(mticker.StrMethodFormatter("${x:,.0f}"))
+    ax1.text(
+        0.04,
+        0.72,
+        f"Skewness = {amt.skew():.4f}\nKurtosis = {amt.kurt():.4f}\n(Flat Platykurtic)",
+        transform=ax1.transAxes,
+        fontsize=9,
+        bbox={"boxstyle": "round,pad=0.4", "fc": "white", "ec": "#cccccc", "alpha": 0.9},
+    )
+    ax1.legend(loc="upper right", frameon=True)
+
+    sns.histplot(log_amt, bins=25, kde=True, ax=ax2, color=PALETTE_SECONDARY, stat="density", alpha=0.55)
+    mean_log, med_log = float(log_amt.mean()), float(log_amt.median())
+    ax2.axvline(mean_log, color=PALETTE_ACCENT, linestyle="--", linewidth=1.8, label=f"Mean: {mean_log:.2f}")
+    ax2.axvline(med_log, color=PALETTE_TEAL, linestyle="-.", linewidth=1.8, label=f"Median: {med_log:.2f}")
+    ax2.set_title("Panel B: log1p Spend (Transforms Uniformity into Negative Skew)", fontsize=11, fontweight="bold")
+    ax2.set_xlabel("Log-Transformed Spend (ln(1 + USD))")
+    ax2.set_ylabel("Probability Density")
+    ax2.text(
+        0.04,
+        0.72,
+        f"Skewness = {log_amt.skew():.4f}\nKurtosis = {log_amt.kurt():.4f}\n(Induced Left Skew)",
+        transform=ax2.transAxes,
+        fontsize=9,
+        bbox={"boxstyle": "round,pad=0.4", "fc": "white", "ec": "#cccccc", "alpha": 0.9},
+    )
+    ax2.legend(loc="upper right", frameon=True)
+
+    z_spend = (amt - mean_amt) / float(amt.std(ddof=1))
+    q1, q3 = float(amt.quantile(0.25)), float(amt.quantile(0.75))
+    robust_spend = (amt - med_amt) / (q3 - q1)
+    sns.kdeplot(z_spend, ax=ax3, color=PALETTE_PRIMARY, linewidth=2.0, label="Z-Score Standardized (Mean=0, SD=1)")
+    sns.kdeplot(
+        robust_spend,
+        ax=ax3,
+        color="#7570B3",
+        linewidth=2.0,
+        linestyle="--",
+        label="Robust Scaled (Median=0, IQR=1)",
+    )
+    ax3.set_title("Panel C: Feature Scaling for Model Normalization", fontsize=11, fontweight="bold")
+    ax3.set_xlabel("Scaled Standardized Units")
+    ax3.set_ylabel("Probability Density")
+    ax3.legend(loc="upper right", frameon=True)
+
+    months_dt = monthly_signups.index.to_timestamp()
+    ax4.plot(
+        months_dt,
+        monthly_signups.values,
+        color=PALETTE_MUTED,
+        alpha=0.55,
+        linewidth=1.2,
+        marker="o",
+        markersize=3,
+        label="Raw Monthly Ingestion (SD=9.8)",
+    )
+    smoothed_dt = monthly_smoothed.index.to_timestamp()
+    ax4.plot(
+        smoothed_dt,
+        monthly_smoothed.values,
+        color=PALETTE_ACCENT,
+        linewidth=2.4,
+        label="3-Month Centered Moving Avg (SD=5.8)",
+    )
+    ax4.axhline(
+        float(monthly_signups.mean()),
+        color=PALETTE_PRIMARY,
+        linestyle=":",
+        linewidth=1.6,
+        label=f"Long-Run Mean ({monthly_signups.mean():.1f}/mo)",
+    )
+    ax4.set_title("Panel D: Temporal Smoothing (Filters 65.4% of Ingestion Noise)", fontsize=11, fontweight="bold")
+    ax4.set_xlabel("Account Signup Date (YYYY-MM)")
+    ax4.set_ylabel("New Customers per Month (n)")
+    ax4.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+    ax4.xaxis.set_major_locator(mdates.YearLocator())
+    ax4.legend(loc="lower right", frameon=True)
+
+    plt.tight_layout(rect=[0.01, 0.03, 0.99, 0.93])
+    _add_publication_chrome(
+        fig=fig,
+        title="Distributional Transformation Evaluation: Uniform Spend Left-Skew vs Acquisition Noise Smoothing",
+        subtitle="Empirical Evaluation of log1p Spend Scaling and 3-Month Moving Average Smoothing | n = 2,466 valid orders, n = 66 months",
+        title_y=0.985,
+        subtitle_y=0.955,
+        source_caption="Source: Customer Messy Data (customers_enriched_v2.csv) | Author: @levifvy",
+    )
+
+    if save:
+        save_publication_figure(fig, "a4", "transformation_before_after", output_dir=output_dir)
+    return fig
+
+
+def plot_a5_segment_multidimensional_comparison(
+    df_enriched_v2: pd.DataFrame | None = None,
+    save: bool = True,
+    output_dir: Path | None = None,
+) -> plt.Figure:
+    """Plot 3-panel multi-dimensional segment matrix (A5)."""
+    apply_publication_theme()
+    if df_enriched_v2 is None:
+        from src.features import load_enriched_customers
+
+        df_enriched_v2 = load_enriched_customers("v2")
+
+    fig = plt.figure(figsize=(16, 6.2))
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.1, 1.2, 1.0])
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1])
+    ax3 = fig.add_subplot(gs[2])
+
+    reach_order = ["Omnichannel (Both)", "Email Only", "Phone Only", "Unreachable (None)"]
+    spend_order = ["High (>$3,500)", "Medium ($1,200-$3,500)", "Low (<$1,200)"]
+    spend_colors = {
+        "High (>$3,500)": PALETTE_ACCENT,
+        "Medium ($1,200-$3,500)": PALETTE_PRIMARY,
+        "Low (<$1,200)": PALETTE_SECONDARY,
+    }
+
+    cross_tab = (
+        pd.crosstab(
+            df_enriched_v2["contact_reachability_tier"],
+            df_enriched_v2["spend_tier"],
+        )
+        .reindex(index=reach_order, columns=spend_order)
+        .fillna(0)
+    )
+
+    y_pos = np.arange(len(reach_order))
+    bar_width = 0.25
+    for idx, s_tier in enumerate(spend_order):
+        counts = cross_tab[s_tier].values
+        ax1.barh(
+            y_pos + idx * bar_width,
+            counts,
+            height=bar_width,
+            label=s_tier,
+            color=spend_colors[s_tier],
+            alpha=0.9,
+        )
+        if s_tier == "High (>$3,500)":
+            unreachable_val = cross_tab.loc["Unreachable (None)", s_tier]
+            ax1.annotate(
+                f"VIP Gap: {unreachable_val} High VIPs\n($1.71M Unreachable)",
+                xy=(unreachable_val, 3 + idx * bar_width),
+                xytext=(unreachable_val + 40, 2.7),
+                arrowprops={"arrowstyle": "->", "color": PALETTE_ACCENT, "lw": 1.5},
+                fontsize=8.5,
+                fontweight="bold",
+                color=PALETTE_ACCENT,
+            )
+
+    ax1.set_yticks(y_pos + bar_width)
+    ax1.set_yticklabels(reach_order, fontweight="bold")
+    ax1.invert_yaxis()
+    ax1.set_xlabel("Customer Count (n)")
+    ax1.set_title("Panel A: Spend Tiers by Reachability (VIP Gap)", fontsize=11, fontweight="bold")
+    ax1.legend(loc="lower right", frameon=True, fontsize=8.5)
+
+    valid_orders = df_enriched_v2.loc[
+        df_enriched_v2["purchase_amount"].notna()
+        & (df_enriched_v2["gender"] != "Unknown")
+        & (df_enriched_v2["age_group"] != "Unknown")
+    ].copy()
+    valid_orders["gender"] = valid_orders["gender"].astype(str)
+    valid_orders["age_group"] = valid_orders["age_group"].astype(str)
+    age_labels_order = [
+        "18-29 (Young Adult)",
+        "30-44 (Early Career)",
+        "45-59 (Mid-Senior)",
+        "60+ (Senior)",
+    ]
+    sns.boxplot(
+        data=valid_orders,
+        x="age_group",
+        y="purchase_amount",
+        hue="gender",
+        order=age_labels_order,
+        hue_order=["Male", "Female"],
+        palette={"Male": PALETTE_PRIMARY, "Female": PALETTE_TEAL},
+        ax=ax2,
+        showmeans=True,
+        meanprops={"marker": "o", "markeredgecolor": PALETTE_ACCENT, "markerfacecolor": PALETTE_ACCENT, "markersize": 5},
+        boxprops={"alpha": 0.8},
+    )
+    ax2.set_title("Panel B: Order Value by Age Group & Gender", fontsize=11, fontweight="bold")
+    ax2.set_xlabel("Customer Age Group")
+    ax2.set_ylabel("Purchase Amount (USD $)")
+    ax2.yaxis.set_major_formatter(mticker.StrMethodFormatter("${x:,.0f}"))
+    ax2.set_xticks(range(4))
+    ax2.set_xticklabels(["18-29", "30-44", "45-59", "60+"], fontweight="bold")
+    ax2.legend(loc="upper right", frameon=True, fontsize=8.5)
+
+    from src.analysis import audit_external_enrichment
+
+    _, a2_perf = audit_external_enrichment(df_enriched_v2)
+    reg_clean = a2_perf[a2_perf["metro_region"] != "Unknown"].copy()
+
+    x_reg = np.arange(len(reg_clean))
+    bars3 = ax3.bar(
+        x_reg,
+        reg_clean["revenue_per_1k_customers_usd"] / 1e3,
+        color=PALETTE_PRIMARY,
+        alpha=0.88,
+        width=0.55,
+    )
+    ax3.set_xticks(x_reg)
+    ax3.set_xticklabels(reg_clean["metro_region"], fontweight="bold")
+    ax3.set_ylabel("Revenue / 1k Customers ($k USD)")
+    ax3.set_title("Panel C: Regional Monetization (KPI-3)", fontsize=11, fontweight="bold")
+    ax3.yaxis.set_major_formatter(mticker.StrMethodFormatter("${x:.0f}k"))
+    ax3.set_ylim(0, max(reg_clean["revenue_per_1k_customers_usd"] / 1e3) * 1.25)
+
+    for bar, val, csat in zip(
+        bars3,
+        reg_clean["revenue_per_1k_customers_usd"] / 1e3,
+        reg_clean["mean_feedback_score"],
+        strict=False,
+    ):
+        ax3.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 15,
+            f"${val:.0f}k\n(CSAT {csat:.2f})",
+            ha="center",
+            va="bottom",
+            fontsize=8.5,
+            fontweight="bold",
+        )
+
+    plt.tight_layout(rect=[0.01, 0.04, 0.99, 0.91])
+    _add_publication_chrome(
+        fig=fig,
+        title="Multi-Dimensional Customer Matrix: 405 High-Value Spenders ($1.71M) Lack Contact Reachability",
+        subtitle="Cross-Analysis of Value Tiers, Omnichannel Reachability, and Macroeconomic Regions | n = 10,000 records",
+        title_y=0.985,
+        subtitle_y=0.94,
+        source_caption="Source: Customer Messy Data (customers_enriched_v2.csv) | Author: @levifvy",
+    )
+
+    if save:
+        save_publication_figure(fig, "a5", "segment_multidimensional_comparison", output_dir=output_dir)
+    return fig
+
+
+def plot_a6_interactive_customer_explorer(
+    df_enriched_v2: pd.DataFrame | None = None,
+    save_html: bool = True,
+    save_png: bool = True,
+    output_dir: Path | None = None,
+) -> tuple[go.Figure, plt.Figure]:
+    """Build and export the interactive customer value & reachability explorer (A6).
+
+    Creates interactive Plotly multi-dimensional scatter visual with marginal distributions
+    and exports both HTML and 300 DPI publication mirror PNG.
+    """
+    if df_enriched_v2 is None:
+        from src.features import load_enriched_customers
+
+        df_enriched_v2 = load_enriched_customers("v2")
+
+    target_dir = output_dir if output_dir is not None else CHARTS_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    plot_df = df_enriched_v2[
+        df_enriched_v2["purchase_amount"].notna() & df_enriched_v2["age"].notna()
+    ].copy()
+
+    fig_plotly = px.scatter(
+        plot_df,
+        x="age",
+        y="purchase_amount",
+        color="spend_tier",
+        symbol="gender",
+        hover_name="customer_id",
+        hover_data={
+            "age": ":.1f",
+            "purchase_amount": ":$,.2f",
+            "city": True,
+            "metro_region": True,
+            "contact_reachability_tier": True,
+            "feedback_tier": True,
+            "customer_tenure_days": ":.0f",
+            "spend_tier": False,
+        },
+        labels={
+            "age": "Customer Age (Years)",
+            "purchase_amount": "Purchase Amount (USD $)",
+            "spend_tier": "Spend Tier",
+            "gender": "Gender",
+            "metro_region": "Metro Region",
+        },
+        title="<b>Interactive Customer Value Explorer</b><br><sup>Hover to inspect customer spend, demographics, reachability and regional metadata | n = 2,465 valid orders</sup>",
+        color_discrete_map={
+            "High (>$3,500)": PALETTE_ACCENT,
+            "Medium ($1,200-$3,500)": PALETTE_PRIMARY,
+            "Low (<$1,200)": PALETTE_SECONDARY,
+        },
+        template="plotly_white",
+        marginal_x="histogram",
+        marginal_y="box",
+    )
+
+    fig_plotly.update_layout(
+        font_family="Segoe UI, Arial, sans-serif",
+        title_font_size=15,
+        legend_title_font_size=11,
+        hoverlabel={"bgcolor": "white", "font_size": 11, "font_family": "Segoe UI"},
+    )
+
+    if save_html:
+        html_path = target_dir / "a6_interactive_customer_explorer.html"
+        fig_plotly.write_html(str(html_path), include_plotlyjs="cdn")
+        try:
+            rel_display = html_path.resolve().relative_to(REPO_ROOT).as_posix()
+        except ValueError:
+            rel_display = html_path.as_posix()
+        print(f"Saved interactive HTML: {rel_display}")
+
+    apply_publication_theme()
+    fig_static, (ax_main, ax_reach) = plt.subplots(
+        1, 2, figsize=(15, 6.2), gridspec_kw={"width_ratios": [1.4, 1.0]}
+    )
+
+    sns.scatterplot(
+        data=plot_df,
+        x="age",
+        y="purchase_amount",
+        hue="spend_tier",
+        palette={
+            "High (>$3,500)": PALETTE_ACCENT,
+            "Medium ($1,200-$3,500)": PALETTE_PRIMARY,
+            "Low (<$1,200)": PALETTE_SECONDARY,
+            "Missing": PALETTE_MUTED,
+        },
+        alpha=0.6,
+        ax=ax_main,
+        s=35,
+    )
+    ax_main.set_xlabel("Customer Age (Years)")
+    ax_main.set_ylabel("Purchase Amount (USD $)")
+    ax_main.yaxis.set_major_formatter(mticker.StrMethodFormatter("${x:,.0f}"))
+    ax_main.set_title("Panel A: Multi-Dimensional Customer Spend Scatter Mirror", fontsize=11, fontweight="bold")
+    ax_main.legend(loc="upper right", frameon=True, fontsize=8.5)
+
+    fb_valid = plot_df[plot_df["feedback_score_1_to_5"].notna()].copy()
+    fb_valid["contact_reachability_tier"] = fb_valid["contact_reachability_tier"].astype(str)
+    reach_order_a6 = ["Omnichannel (Both)", "Email Only", "Phone Only", "Unreachable (None)"]
+    sns.boxplot(
+        data=fb_valid,
+        x="contact_reachability_tier",
+        y="feedback_score_1_to_5",
+        order=reach_order_a6,
+        color=PALETTE_TEAL,
+        ax=ax_reach,
+        boxprops={"alpha": 0.7},
+        showmeans=True,
+        meanprops={"marker": "o", "markeredgecolor": PALETTE_ACCENT, "markerfacecolor": PALETTE_ACCENT, "markersize": 6},
+    )
+    ax_reach.set_title("Panel B: Satisfaction by Reachability Tier", fontsize=11, fontweight="bold")
+    ax_reach.set_xlabel("Contact Reachability Tier")
+    ax_reach.set_ylabel("Satisfaction Rating (1-5 Likert)")
+    ax_reach.set_xticks(range(4))
+    ax_reach.set_xticklabels(["Omnichannel", "Email Only", "Phone Only", "Unreachable"], rotation=15, ha="right")
+
+    plt.tight_layout(rect=[0.01, 0.04, 0.99, 0.91])
+    _add_publication_chrome(
+        fig=fig_static,
+        title="Interactive Customer Exploration: Spend Tiers, Demographics and Reachability",
+        subtitle="Static Publication Mirror of Plotly Explorer (a6_interactive_customer_explorer.html) | n = 2,465 valid orders",
+        title_y=0.985,
+        subtitle_y=0.94,
+        source_caption="Source: Customer Messy Data (customers_enriched_v2.csv) | Author: @levifvy",
+    )
+
+    if save_png:
+        save_publication_figure(fig_static, "a6", "interactive_customer_explorer", output_dir=output_dir)
+
+    return fig_plotly, fig_static
+
+
+def generate_advanced_charts(
+    df_enriched_v2: pd.DataFrame | None = None,
+    output_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Generate and export all 4 Advanced Level figures at 300 DPI."""
+    if df_enriched_v2 is None:
+        from src.features import load_enriched_customers
+
+        df_enriched_v2 = load_enriched_customers("v2")
+
+    target_dir = output_dir if output_dir is not None else CHARTS_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    fig_a1 = plot_a1_raw_vs_normalized_metrics(df_enriched_v2, save=True, output_dir=target_dir)
+    plt.close(fig_a1)
+
+    fig_a4 = plot_a4_transformation_before_after(df_enriched_v2, save=True, output_dir=target_dir)
+    plt.close(fig_a4)
+
+    fig_a5 = plot_a5_segment_multidimensional_comparison(df_enriched_v2, save=True, output_dir=target_dir)
+    plt.close(fig_a5)
+
+    _plotly_fig, fig_a6 = plot_a6_interactive_customer_explorer(
+        df_enriched_v2, save_html=True, save_png=True, output_dir=target_dir
+    )
+    plt.close(fig_a6)
+
+    return {
+        "a1_raw_vs_normalized_metrics": target_dir / "a1_raw_vs_normalized_metrics.png",
+        "a4_transformation_before_after": target_dir / "a4_transformation_before_after.png",
+        "a5_segment_multidimensional_comparison": target_dir / "a5_segment_multidimensional_comparison.png",
+        "a6_interactive_customer_explorer_html": target_dir / "a6_interactive_customer_explorer.html",
+        "a6_interactive_customer_explorer_png": target_dir / "a6_interactive_customer_explorer.png",
+    }
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -3116,7 +3683,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate publication EDA figures.")
     parser.add_argument(
         "--block",
-        choices=("essential", "m2", "m5", "m6", "m5m6", "all"),
+        choices=("essential", "m2", "m5", "m6", "m5m6", "advanced", "all"),
         default="m2",
         help="Delivery block of charts to export (default: m2).",
     )
@@ -3138,3 +3705,5 @@ if __name__ == "__main__":
         generate_m5m6_charts(output_dir=args.output_dir, blocks=("m6",))
     if args.block in ("m5m6", "all"):
         generate_m5m6_charts(output_dir=args.output_dir, blocks=("m5", "m6"))
+    if args.block in ("advanced", "all"):
+        generate_advanced_charts(output_dir=args.output_dir)

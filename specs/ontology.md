@@ -115,6 +115,9 @@ To support Medium (`M1–M7`) and Advanced (`A1–A7`) analytical milestones, th
 | `contact_reachability_tier` | `StatisticalAnalystAgent` | `has_valid_email`, `has_valid_phone` | ordered `category` | `'Omnichannel (Both)'`, `'Email Only'`, `'Phone Only'`, `'Unreachable (None)'` | Segments customers by operational campaign reachability (`Q3`). |
 | `customer_tenure_days` | `StatisticalAnalystAgent` | `signup_date`, `last_purchase_date` | `float64` | `(last_purchase_date - signup_date).dt.days` where `~is_date_inverted` (`else np.nan`) | Measures active lifecycle duration in days for valid chronological cohorts (`M4`, `M6`). |
 | `log_purchase_amount` | `StatisticalAnalystAgent` | `purchase_amount` | `float64` | `np.log1p(purchase_amount)` | Stabilizes right-skewed or wide-range monetary scale for parametric modeling (`A4`). |
+| `metro_region` | `StatisticalAnalystAgent` | `city` + `data/external/indian_cities_metadata.csv` | ordered `category` | Mapped via auxiliary Indian Metro catalog: `'West'`, `'North'`, `'South'`, `'East'`, `'Unknown'` | Enables regional macroeconomic and geographic cohort analysis (`A2`, `A5`). |
+| `metro_state` | `StatisticalAnalystAgent` | `city` + `data/external/indian_cities_metadata.csv` | `category` | State/territory lookup: `'Maharashtra'`, `'Delhi (NCR)'`, `'Karnataka'`, `'Telangana'`, `'Tamil Nadu'`, `'West Bengal'`, `'Gujarat'`, `'Unknown'` | State-level segmentation and spatial join verification (`A2`). |
+| `metro_population_m` | `StatisticalAnalystAgent` | `city` + `data/external/indian_cities_metadata.csv` | `float64` | Metro agglomeration population in millions from Census/demographic lookup; `np.nan` for `'Unknown'` | Enables demographic size weighting and per-capita normalization (`A2`). |
 
 ---
 
