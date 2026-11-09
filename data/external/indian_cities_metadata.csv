@@ -1,0 +1,9 @@
+city,metro_region,metro_state,metro_tier,metro_population_m,tech_hub,source
+Mumbai,West,Maharashtra,Tier-1,20.7,1,Census of India & RBI Urban Classification
+Delhi,North,Delhi (NCR),Tier-1,31.2,1,Census of India & RBI Urban Classification
+Bangalore,South,Karnataka,Tier-1,12.8,1,Census of India & RBI Urban Classification
+Hyderabad,South,Telangana,Tier-1,10.3,1,Census of India & RBI Urban Classification
+Ahmedabad,West,Gujarat,Tier-1,8.3,0,Census of India & RBI Urban Classification
+Chennai,South,Tamil Nadu,Tier-1,11.2,1,Census of India & RBI Urban Classification
+Kolkata,East,West Bengal,Tier-1,15.0,0,Census of India & RBI Urban Classification
+Pune,West,Maharashtra,Tier-1,6.8,1,Census of India & RBI Urban Classification
