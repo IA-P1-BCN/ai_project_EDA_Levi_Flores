@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import html
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -30,49 +31,95 @@ DEFAULT_DATA_PATH: Path = REPO_ROOT / "data" / "processed" / "customers_enriched
 FALLBACK_DATA_PATH: Path = REPO_ROOT / "data" / "processed" / "customers_clean_v2.csv"
 RAW_BASELINE_ROWS: int = 10_000
 
-# --------------------------------------------------------------------------------------
-# Visual identity. Single-series marks use the project navy; categorical identities use
-# the colorblind-safe Okabe-Ito hues in a fixed order; ordered categories use one
-# sequential blue ramp; 'Unknown' / 'Missing' / 'Unreachable' are always muted grey.
-# Mean / median reference colors match src/visualization.py.
-# --------------------------------------------------------------------------------------
-NAVY = "#1B4F72"
-INK = "#1F2933"
-INK_MUTED = "#5F6B7A"
-GRID = "#E4E8EE"
-MUTED = "#A3ADB8"
-MEAN_COLOR = "#D95F02"
-MEDIAN_COLOR = "#1B9E77"
-WARNING_COLOR = "#D95F02"
-
-OKABE_BLUE = "#0072B2"
-OKABE_ORANGE = "#E69F00"
-OKABE_GREEN = "#009E73"
-OKABE_VERMILLION = "#D55E00"
-
-SEQUENTIAL_BLUES = ["#C6DBEF", "#6BAED6", "#2171B5", "#08306B"]
-
 AGE_GROUP_ORDER = ["18-29 (Young Adult)", "30-44 (Early Career)", "45-59 (Mid-Senior)", "60+ (Senior)", "Unknown"]
 SPEND_TIER_ORDER = ["Low (<$1,200)", "Medium ($1,200-$3,500)", "High (>$3,500)", "Missing"]
 REACHABILITY_ORDER = ["Omnichannel (Both)", "Email Only", "Phone Only", "Unreachable (None)"]
 FEEDBACK_TIER_ORDER = ["Detractor (1-2)", "Passive (3)", "Promoter (4-5)", "Scale-10 Spike (10)", "Missing"]
 GENDER_ORDER = ["Female", "Male", "Unknown"]
 
-AGE_GROUP_COLORS = dict(zip(AGE_GROUP_ORDER, [*SEQUENTIAL_BLUES, MUTED]))
-SPEND_TIER_COLORS = dict(zip(SPEND_TIER_ORDER, [SEQUENTIAL_BLUES[0], SEQUENTIAL_BLUES[2], SEQUENTIAL_BLUES[3], MUTED]))
-REACHABILITY_COLORS = {
-    "Omnichannel (Both)": OKABE_GREEN,
-    "Email Only": OKABE_BLUE,
-    "Phone Only": OKABE_ORANGE,
-    "Unreachable (None)": MUTED,
-}
-FEEDBACK_SCORE_COLORS = {
-    "Detractor (1-2)": OKABE_VERMILLION,
-    "Passive (3)": "#BAC2CC",
-    "Promoter (4-5)": OKABE_BLUE,
-    "Scale-10 Spike (10)": OKABE_ORANGE,
-}
-GENDER_COLORS = {"Female": OKABE_ORANGE, "Male": OKABE_BLUE, "Unknown": MUTED}
+# --------------------------------------------------------------------------------------
+# Visual identity. Single-series marks use the primary blue; categorical identities use
+# the colorblind-safe Okabe-Ito hues in a fixed order; ordered categories use one
+# sequential blue ramp; 'Unknown' / 'Missing' / 'Unreachable' are always muted grey.
+# Light and dark modes share these rules; only the surface, ink and ramp steps change.
+# --------------------------------------------------------------------------------------
+OKABE_BLUE = "#0072B2"
+OKABE_ORANGE = "#E69F00"
+OKABE_GREEN = "#009E73"
+OKABE_VERMILLION = "#D55E00"
+
+
+@dataclass
+class ThemePalette:
+    """Colors for one display mode. ``C`` holds the active palette for the current run."""
+
+    name: str
+    bg: str
+    surface: str
+    surface_alt: str
+    ink: str
+    ink_muted: str
+    grid: str
+    primary: str
+    muted: str
+    passive: str
+    mean: str
+    median: str
+    warning: str
+    chip_bg: str
+    chip_ink: str
+    header_from: str
+    header_to: str
+    seq: list[str] = field(default_factory=list)
+
+    def age_group_colors(self) -> dict[str, str]:
+        return dict(zip(AGE_GROUP_ORDER, [*self.seq, self.muted]))
+
+    def spend_tier_colors(self) -> dict[str, str]:
+        return dict(zip(SPEND_TIER_ORDER, [self.seq[0], self.seq[2], self.seq[3], self.muted]))
+
+    def reachability_colors(self) -> dict[str, str]:
+        return {
+            "Omnichannel (Both)": OKABE_GREEN,
+            "Email Only": OKABE_BLUE,
+            "Phone Only": OKABE_ORANGE,
+            "Unreachable (None)": self.muted,
+        }
+
+    def feedback_score_colors(self) -> dict[str, str]:
+        return {
+            "Detractor (1-2)": OKABE_VERMILLION,
+            "Passive (3)": self.passive,
+            "Promoter (4-5)": OKABE_BLUE,
+            "Scale-10 Spike (10)": OKABE_ORANGE,
+        }
+
+    def gender_colors(self) -> dict[str, str]:
+        return {"Female": OKABE_ORANGE, "Male": OKABE_BLUE, "Unknown": self.muted}
+
+
+LIGHT_THEME = ThemePalette(
+    name="light", bg="#F5F7FA", surface="#FFFFFF", surface_alt="#E9EEF4", ink="#1F2933", ink_muted="#5F6B7A",
+    grid="#E4E8EE", primary="#1B4F72", muted="#A3ADB8", passive="#BAC2CC", mean="#D95F02", median="#1B9E77",
+    warning="#D95F02", chip_bg="#E3ECF5", chip_ink="#1B4F72", header_from="#1B4F72", header_to="#2E6A97",
+    seq=["#C6DBEF", "#6BAED6", "#2171B5", "#08306B"],
+)
+# Dark mode: lighter steps of the same hues so marks keep contrast on a dark surface;
+# the ordered ramp runs dark -> light so the highest category is the most visible.
+DARK_THEME = ThemePalette(
+    name="dark", bg="#0E1117", surface="#161B22", surface_alt="#1C232C", ink="#E6EAF0", ink_muted="#9AA6B5",
+    grid="#2A3441", primary="#4C9BE0", muted="#6B7785", passive="#8A95A3", mean="#F28C38", median="#2BC48A",
+    warning="#F28C38", chip_bg="#1F3347", chip_ink="#A9CCEB", header_from="#102A43", header_to="#1D4F78",
+    seq=["#1F4E79", "#2E75B6", "#5B9BD5", "#A9CCEB"],
+)
+C = ThemePalette(**asdict(LIGHT_THEME))
+
+
+def set_theme(dark: bool) -> ThemePalette:
+    """Switch the active palette ``C`` in place (render helpers read it at call time)."""
+    for key, value in asdict(DARK_THEME if dark else LIGHT_THEME).items():
+        setattr(C, key, value)
+    return C
 
 # (short label, flag column, what the flag means)
 QUALITY_FLAGS: list[tuple[str, str, str]] = [
@@ -365,24 +412,25 @@ def style_figure(fig: go.Figure, title: str, subtitle: str = "", height: int = 3
     """Apply the shared executive chart style: headline title, n/scope subtitle, quiet axes."""
     title_text = f"<b>{title}</b>"
     if subtitle:
-        title_text += f"<br><span style='font-size:12px;color:{INK_MUTED}'>{subtitle}</span>"
+        title_text += f"<br><span style='font-size:12px;color:{C.ink_muted}'>{subtitle}</span>"
     fig.update_layout(
         title={"text": title_text, "x": 0, "xanchor": "left", "y": 0.97, "yanchor": "top", "pad": {"l": 14},
-               "font": {"size": 15, "color": INK}},
+               "font": {"size": 15, "color": C.ink}},
         height=height,
         margin={"l": 16, "r": 24, "t": 84, "b": 16, "pad": 4},
-        paper_bgcolor="#FFFFFF",
-        plot_bgcolor="#FFFFFF",
-        font={"family": "Segoe UI, Inter, Helvetica Neue, Arial, sans-serif", "size": 12, "color": INK},
-        hoverlabel={"bgcolor": "#FFFFFF", "bordercolor": GRID, "font": {"color": INK, "size": 12}},
+        paper_bgcolor=C.surface,
+        plot_bgcolor=C.surface,
+        font={"family": "Segoe UI, Inter, Helvetica Neue, Arial, sans-serif", "size": 12, "color": C.ink},
+        hoverlabel={"bgcolor": C.surface_alt, "bordercolor": C.grid, "font": {"color": C.ink, "size": 12}},
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.0, "xanchor": "right", "x": 1,
                 "font": {"size": 11}, "bgcolor": "rgba(0,0,0,0)"},
         bargap=0.28,
         barcornerradius=4,
+        modebar={"bgcolor": "rgba(0,0,0,0)", "color": C.ink_muted, "activecolor": C.primary},
     )
-    fig.update_xaxes(automargin=True, showgrid=False, linecolor=GRID, ticks="", title_font={"size": 12, "color": INK_MUTED},
+    fig.update_xaxes(automargin=True, showgrid=False, linecolor=C.grid, ticks="", title_font={"size": 12, "color": C.ink_muted},
                      zeroline=False)
-    fig.update_yaxes(automargin=True, gridcolor=GRID, linecolor=GRID, ticks="", title_font={"size": 12, "color": INK_MUTED},
+    fig.update_yaxes(automargin=True, gridcolor=C.grid, linecolor=C.grid, ticks="", title_font={"size": 12, "color": C.ink_muted},
                      zeroline=False)
     # Vertical bars with outside labels need head-room so labels do not collide with the title.
     vertical_bars = [t for t in fig.data if t.type == "bar" and t.orientation != "h" and t.textposition == "outside"]
@@ -493,56 +541,84 @@ def horizontal_bar(
     fig.update_yaxes(categoryorder="array", categoryarray=list(reversed(labels)), showgrid=False)
     # Leave head-room on the right so the outside labels are never clipped.
     top = max((float(v) for v in values if pd.notna(v)), default=0.0)
-    fig.update_xaxes(title_text=x_title, showgrid=True, gridcolor=GRID, range=[0, top * headroom if top > 0 else 1])
+    fig.update_xaxes(title_text=x_title, showgrid=True, gridcolor=C.grid, range=[0, top * headroom if top > 0 else 1])
     return fig
 
 
 def inject_css() -> None:
-    """Global styles for header, KPI cards, callouts and tabs."""
-    st.markdown(
-        f"""
-        <style>
+    """Global styles for header, KPI cards, callouts and tabs, in the active light/dark palette."""
+    css = f"""
+        .stApp, [data-testid="stHeader"] {{ background: {C.bg}; }}
         .block-container {{ padding-top: 2.2rem; padding-bottom: 2rem; max-width: 1440px; }}
-        .app-header {{ background: linear-gradient(120deg, {NAVY} 0%, #2E6A97 100%); color: #FFFFFF;
+        .app-header {{ background: linear-gradient(120deg, {C.header_from} 0%, {C.header_to} 100%); color: #FFFFFF;
             border-radius: 12px; padding: 22px 28px; margin-bottom: 18px; display: flex;
             justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }}
         .app-header h1 {{ color: #FFFFFF; font-size: 1.7rem; font-weight: 700; margin: 0; padding: 0; }}
         .app-header p {{ margin: 6px 0 0 0; color: #D6E4F0; font-size: 0.92rem; }}
         .app-meta {{ text-align: right; font-size: 0.8rem; color: #D6E4F0; line-height: 1.5; }}
         .app-meta b {{ color: #FFFFFF; }}
-        .chips {{ margin: -4px 0 14px 0; font-size: 0.8rem; color: {INK_MUTED}; }}
-        .chip {{ display: inline-block; background: #E3ECF5; color: {NAVY}; border-radius: 999px;
+        .chips {{ margin: -4px 0 14px 0; font-size: 0.8rem; color: {C.ink_muted}; }}
+        .chip {{ display: inline-block; background: {C.chip_bg}; color: {C.chip_ink}; border-radius: 999px;
             padding: 2px 10px; margin: 2px 6px 2px 0; font-weight: 600; }}
         .kpi-grid {{ display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
             gap: 12px; margin-bottom: 18px; }}
         @media (max-width: 1200px) {{ .kpi-grid {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }} }}
         @media (max-width: 640px) {{ .kpi-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
-        .kpi {{ background: #FFFFFF; border: 1px solid {GRID}; border-top: 3px solid {NAVY};
+        .kpi {{ background: {C.surface}; border: 1px solid {C.grid}; border-top: 3px solid {C.primary};
             border-radius: 10px; padding: 14px 16px; }}
         .kpi-label {{ font-size: 0.74rem; text-transform: uppercase; letter-spacing: .04em;
-            color: {INK_MUTED}; font-weight: 600; }}
-        .kpi-value {{ font-size: 1.55rem; font-weight: 700; color: {INK}; margin: 4px 0 2px 0;
+            color: {C.ink_muted}; font-weight: 600; }}
+        .kpi-value {{ font-size: 1.55rem; font-weight: 700; color: {C.ink}; margin: 4px 0 2px 0;
             font-variant-numeric: tabular-nums; }}
-        .kpi-foot {{ font-size: 0.76rem; color: {INK_MUTED}; }}
-        .section-head h3 {{ margin: 6px 0 0 0; font-size: 1.25rem; color: {INK}; }}
-        .section-head p {{ margin: 2px 0 12px 0; color: {INK_MUTED}; font-size: 0.9rem; }}
-        .insight {{ background: #FFFFFF; border: 1px solid {GRID}; border-left: 4px solid {MEDIAN_COLOR};
+        .kpi-foot {{ font-size: 0.76rem; color: {C.ink_muted}; }}
+        .section-head h3 {{ margin: 6px 0 0 0; font-size: 1.25rem; color: {C.ink}; }}
+        .section-head p {{ margin: 2px 0 12px 0; color: {C.ink_muted}; font-size: 0.9rem; }}
+        .insight {{ background: {C.surface}; border: 1px solid {C.grid}; border-left: 4px solid {C.median};
             border-radius: 8px; padding: 12px 18px; margin: 4px 0 16px 0; }}
-        .insight-title {{ font-weight: 700; color: {INK}; font-size: 0.9rem; margin-bottom: 4px; }}
+        .insight-title {{ font-weight: 700; color: {C.ink}; font-size: 0.9rem; margin-bottom: 4px; }}
         .insight ul {{ margin: 0; padding-left: 18px; }}
-        .insight li {{ font-size: 0.9rem; color: {INK}; margin: 3px 0; }}
-        .chart-note {{ font-size: 0.78rem; color: {INK_MUTED}; margin: -6px 0 14px 4px; }}
-        .stTabs [data-baseweb="tab-list"] {{ gap: 4px; border-bottom: 1px solid {GRID}; }}
+        .insight li {{ font-size: 0.9rem; color: {C.ink}; margin: 3px 0; }}
+        .chart-note {{ font-size: 0.78rem; color: {C.ink_muted}; margin: -6px 0 14px 4px; }}
+        .stTabs [data-baseweb="tab-list"] {{ gap: 4px; border-bottom: 1px solid {C.grid}; }}
         .stTabs [data-baseweb="tab"] {{ height: 44px; padding: 0 16px; border-radius: 8px 8px 0 0;
-            font-weight: 600; }}
-        .stTabs [aria-selected="true"] {{ background: #FFFFFF; color: {NAVY}; }}
-        [data-testid="stPlotlyChart"] {{ background: #FFFFFF; border: 1px solid {GRID};
+            font-weight: 600; color: {C.ink_muted}; }}
+        .stTabs [aria-selected="true"] {{ background: {C.surface}; color: {C.primary}; }}
+        [data-testid="stPlotlyChart"] {{ background: {C.surface}; border: 1px solid {C.grid};
             border-radius: 10px; overflow: hidden; }}
-        .footer {{ text-align: center; color: {INK_MUTED}; font-size: 0.78rem; margin-top: 18px; }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+        .footer {{ text-align: center; color: {C.ink_muted}; font-size: 0.78rem; margin-top: 18px; }}
+    """
+    if C.name == "dark":
+        # Streamlit's own widgets follow the light base theme; restyle them for the dark palette.
+        css += f"""
+        [data-testid="stSidebar"] > div:first-child {{ background: {C.surface}; }}
+        .stApp, .stApp p, .stApp li, .stApp label, .stApp h1, .stApp h2, .stApp h3, .stApp h4,
+        .stApp td, .stApp th, .stApp summary, .stApp span, [data-testid="stCaptionContainer"] {{ color: {C.ink}; }}
+        [data-testid="stCaptionContainer"] p {{ color: {C.ink_muted}; }}
+        .stApp code {{ background: {C.surface_alt}; color: {C.chip_ink}; }}
+        .stApp table, .stApp th, .stApp td {{ border-color: {C.grid} !important; }}
+        .stApp th {{ background: {C.surface_alt}; }}
+        [data-testid="stMultiSelect"] [role="group"], [data-baseweb="select"] > div {{
+            background: {C.surface_alt} !important; border-color: {C.grid} !important; }}
+        [data-testid="stMultiSelect"] input {{ color: {C.ink} !important; }}
+        [data-testid="stMultiSelect"] input::placeholder {{ color: {C.ink_muted} !important; }}
+        [data-testid="stMultiSelect"] svg {{ color: {C.ink_muted}; fill: {C.ink_muted}; }}
+        .react-aria-Popover, [role="listbox"], [data-baseweb="popover"] ul {{
+            background: {C.surface_alt} !important; color: {C.ink} !important; border-color: {C.grid} !important; }}
+        [role="option"] {{ color: {C.ink} !important; }}
+        [role="option"]:hover, [role="option"][data-focused] {{ background: {C.chip_bg} !important; }}
+        .stButton button, .stDownloadButton button {{ background: {C.surface_alt}; color: {C.ink};
+            border-color: {C.grid}; }}
+        .stButton button:hover, .stDownloadButton button:hover {{ border-color: {C.primary}; color: {C.primary}; }}
+        [data-testid="stExpander"] details {{ background: {C.surface}; border-color: {C.grid}; }}
+        [data-testid="stExpander"] summary:hover p {{ color: {C.primary}; }}
+        [data-testid="stProgress"] > div > div {{ background: {C.surface_alt}; }}
+        hr {{ border-color: {C.grid}; }}
+        label:has(input[role="switch"]:not(:checked)) > div:first-of-type {{ background: {C.muted} !important; }}
+        label:has(input[role="switch"]:checked) > div:first-of-type {{ background: {C.primary} !important; }}
+        /* Data grids are drawn on canvas: invert them so tables read as dark too. */
+        [data-testid="stDataFrame"] {{ filter: invert(0.92) hue-rotate(180deg); }}
+        """
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
 
 # ======================================================================================
@@ -581,7 +657,7 @@ def render_overview_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) -> None
                 go.Histogram(
                     x=spend,
                     xbins={"start": 0, "end": float(edges[-1]), "size": 250},
-                    marker={"color": NAVY, "line": {"color": "#FFFFFF", "width": 1}},
+                    marker={"color": C.primary, "line": {"color": C.surface, "width": 1}},
                     name="Customers",
                     showlegend=False,
                     hovertemplate="$%{x}<br>%{y:,} customers<extra></extra>",
@@ -589,8 +665,8 @@ def render_overview_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) -> None
             )
             y_top = float(counts.max()) * 1.08
             for label, value, color, dash in [
-                ("Median", kpis["median_spend"], MEDIAN_COLOR, "dash"),
-                ("Mean", kpis["mean_spend"], MEAN_COLOR, "dot"),
+                ("Median", kpis["median_spend"], C.median, "dash"),
+                ("Mean", kpis["mean_spend"], C.mean, "dot"),
             ]:
                 fig.add_trace(
                     go.Scatter(
@@ -618,7 +694,7 @@ def render_overview_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) -> None
             fig = horizontal_bar(
                 labels=tiers,
                 values=[int(counts[t]) for t in tiers],
-                colors=[REACHABILITY_COLORS[t] for t in tiers],
+                colors=[C.reachability_colors()[t] for t in tiers],
                 text=[f"{counts[t]:,} · {counts[t] / n * 100:.1f}%" for t in tiers],
                 hover=[
                     f"<b>{t}</b><br>{counts[t]:,} customers ({counts[t] / n * 100:.1f}%)"
@@ -674,7 +750,7 @@ def render_demographics_tab(filtered_df: pd.DataFrame) -> None:
                     go.Bar(
                         x=[wrap_label(g) for g in groups],
                         y=[int(counts[g]) for g in groups],
-                        marker={"color": [AGE_GROUP_COLORS[g] for g in groups]},
+                        marker={"color": [C.age_group_colors()[g] for g in groups]},
                         text=[f"{counts[g]:,}<br>{counts[g] / known * 100:.1f}%" for g in groups],
                         textposition="outside",
                         cliponaxis=False,
@@ -695,7 +771,7 @@ def render_demographics_tab(filtered_df: pd.DataFrame) -> None:
             go.Bar(
                 x=genders,
                 y=[int(counts[g]) for g in genders],
-                marker={"color": [GENDER_COLORS[g] for g in genders]},
+                marker={"color": [C.gender_colors()[g] for g in genders]},
                 text=[f"{counts[g]:,}<br>{counts[g] / n * 100:.1f}%" for g in genders],
                 textposition="outside",
                 cliponaxis=False,
@@ -717,7 +793,7 @@ def render_demographics_tab(filtered_df: pd.DataFrame) -> None:
         fig = horizontal_bar(
             labels=cities,
             values=[int(counts[c]) for c in cities],
-            colors=[MUTED if c == "Unknown" else NAVY for c in cities],
+            colors=[C.muted if c == "Unknown" else C.primary for c in cities],
             text=[f"{counts[c]:,} · {counts[c] / n * 100:.1f}%" for c in cities],
             hover=[f"<b>{c}</b><br>{counts[c]:,} customers" for c in cities],
             x_title="Customers (n)",
@@ -736,7 +812,7 @@ def render_demographics_tab(filtered_df: pd.DataFrame) -> None:
             fig = horizontal_bar(
                 labels=regions,
                 values=[int(counts[r]) for r in regions],
-                colors=[MUTED if r == "Unknown" else SEQUENTIAL_BLUES[2] for r in regions],
+                colors=[C.muted if r == "Unknown" else C.seq[2] for r in regions],
                 text=[f"{counts[r]:,} · {counts[r] / n * 100:.1f}%" for r in regions],
                 hover=[f"<b>{r}</b><br>{counts[r]:,} customers" for r in regions],
                 x_title="Customers (n)",
@@ -797,7 +873,7 @@ def render_revenue_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) -> None:
             fig = horizontal_bar(
                 labels=labels,
                 values=list(tiers["customers"]),
-                colors=[SPEND_TIER_COLORS[t] for t in labels],
+                colors=[C.spend_tier_colors()[t] for t in labels],
                 text=[
                     f"{int(r.customers):,} · {format_money(r.revenue, compact=True)} ({r.revenue_share:.0f}%)"
                     for r in tiers.itertuples()
@@ -825,7 +901,7 @@ def render_revenue_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) -> None:
                 values = valid.loc[valid["age_group"] == g, "purchase_amount"]
                 fig.add_trace(
                     go.Box(
-                        y=values, name=wrap_label(g), marker={"color": AGE_GROUP_COLORS[g]},
+                        y=values, name=wrap_label(g), marker={"color": C.age_group_colors()[g]},
                         line={"width": 1.5}, boxmean=True, boxpoints=False, showlegend=False,
                         hovertemplate=f"<b>{g}</b><br>%{{y:$,.0f}}<extra></extra>",
                     )
@@ -847,7 +923,7 @@ def render_revenue_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) -> None:
     fig = horizontal_bar(
         labels=labels,
         values=list(city["rev_per_1k"] / 1e6),
-        colors=[MUTED if c == "Unknown" else NAVY for c in labels],
+        colors=[C.muted if c == "Unknown" else C.primary for c in labels],
         text=[format_money(v, compact=True) for v in city["rev_per_1k"]],
         hover=[
             f"<b>{r.segment}</b><br>Revenue per 1,000 buyers: {format_money(r.rev_per_1k, compact=True)}"
@@ -857,9 +933,9 @@ def render_revenue_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) -> None:
         x_title="Revenue per 1,000 buyers (USD millions)",
     )
     fig.add_vline(
-        x=kpis["norm_rev_per_1k"] / 1e6, line={"color": MEAN_COLOR, "dash": "dot", "width": 2},
+        x=kpis["norm_rev_per_1k"] / 1e6, line={"color": C.mean, "dash": "dot", "width": 2},
         annotation_text=f"All buyers {format_money(kpis['norm_rev_per_1k'], compact=True)}",
-        annotation_position="top", annotation_font={"color": MEAN_COLOR, "size": 11},
+        annotation_position="top", annotation_font={"color": C.mean, "size": 11},
     )
     style_figure(
         fig,
@@ -949,7 +1025,7 @@ def render_satisfaction_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) -> 
                 return "Detractor (1-2)" if score <= 2 else "Passive (3)" if score == 3 else "Promoter (4-5)"
 
             fig = go.Figure()
-            for name, color in FEEDBACK_SCORE_COLORS.items():
+            for name, color in C.feedback_score_colors().items():
                 xs = [s for s in order if tier(s) == name]
                 if not xs:
                     continue
@@ -983,7 +1059,7 @@ def render_satisfaction_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) -> 
             fig = horizontal_bar(
                 labels=labels,
                 values=list(reach["revenue"] / 1e6),
-                colors=[REACHABILITY_COLORS.get(t, MUTED) for t in labels],
+                colors=[C.reachability_colors().get(t, C.muted) for t in labels],
                 text=[f"{format_money(r.revenue, compact=True)} · {r.revenue_share:.1f}%" for r in reach.itertuples()],
                 hover=[
                     f"<b>{r.segment}</b><br>Revenue {format_money(r.revenue, compact=True)} ({r.revenue_share:.1f}%)"
@@ -1009,7 +1085,7 @@ def render_satisfaction_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) -> 
             go.Histogram(
                 x=tenure,
                 xbins={"start": 0, "end": float(edges[-1]), "size": 60},
-                marker={"color": OKABE_GREEN, "line": {"color": "#FFFFFF", "width": 1}},
+                marker={"color": OKABE_GREEN, "line": {"color": C.surface, "width": 1}},
                 showlegend=False,
                 hovertemplate="%{x} days<br>%{y:,} customers<extra></extra>",
             )
@@ -1018,7 +1094,7 @@ def render_satisfaction_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) -> 
         fig.add_trace(
             go.Scatter(
                 x=[median_tenure, median_tenure], y=[0, float(counts.max()) * 1.08], mode="lines",
-                line={"color": INK, "width": 2, "dash": "dash"}, name=f"Median {median_tenure:.0f} days",
+                line={"color": C.ink, "width": 2, "dash": "dash"}, name=f"Median {median_tenure:.0f} days",
                 hovertemplate=f"Median: {median_tenure:.0f} days<extra></extra>",
             )
         )
@@ -1067,13 +1143,13 @@ def render_quality_audit_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) ->
         fig = horizontal_bar(
             labels=labels,
             values=list(coverage["coverage"]),
-            colors=[NAVY if v >= 50 else WARNING_COLOR for v in coverage["coverage"]],
+            colors=[C.primary if v >= 50 else C.warning for v in coverage["coverage"]],
             text=[f"{v:.1f}%" for v in coverage["coverage"]],
             hover=[f"<b>{r.attribute}</b><br>{int(r.valid):,} valid values ({r.coverage:.1f}%)"
                    for r in coverage.itertuples()],
             x_title="Valid values (% of records)",
         )
-        fig.add_vline(x=50, line={"color": INK_MUTED, "dash": "dot", "width": 1})
+        fig.add_vline(x=50, line={"color": C.ink_muted, "dash": "dot", "width": 1})
         style_figure(
             fig,
             f"Only {coverage.iloc[-1]['coverage']:.0f}% of records hold a valid {coverage.iloc[-1]['attribute'].lower()}",
@@ -1088,7 +1164,7 @@ def render_quality_audit_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) ->
         fig = horizontal_bar(
             labels=labels,
             values=list(ordered["records"]),
-            colors=WARNING_COLOR,
+            colors=C.warning,
             text=[f"{int(r.records):,} · {r.rate:.1f}%" for r in ordered.itertuples()],
             hover=[f"<b>{r.flag}</b><br>{r.detail}<br>{int(r.records):,} records ({r.rate:.1f}%)"
                    for r in ordered.itertuples()],
@@ -1110,7 +1186,7 @@ def render_quality_audit_tab(filtered_df: pd.DataFrame, kpis: dict[str, Any]) ->
             go.Bar(
                 x=list(counts.index),
                 y=list(counts.values),
-                marker={"color": SEQUENTIAL_BLUES[2]},
+                marker={"color": C.seq[2]},
                 text=[f"{v:,}" for v in counts.values],
                 textposition="outside",
                 cliponaxis=False,
@@ -1236,6 +1312,8 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="expanded",
     )
+    # The theme switch is rendered further down; its value from the previous run drives this run.
+    set_theme(bool(st.session_state.get("dark_mode", False)))
     inject_css()
 
     try:
@@ -1304,7 +1382,15 @@ def main() -> None:
          "Off-scale feedback": x_spike},
     )
     chips = "".join(f"<span class='chip'>{html.escape(a)}</span>" for a in active) or "<span>None — full customer base</span>"
-    st.markdown(f"<div class='chips'>Active filters: {chips}</div>", unsafe_allow_html=True)
+    chips_col, theme_col = st.columns([5, 1], vertical_alignment="center")
+    with chips_col:
+        st.markdown(f"<div class='chips'>Active filters: {chips}</div>", unsafe_allow_html=True)
+    with theme_col:
+        st.toggle(
+            ":material/dark_mode: Dark mode",
+            key="dark_mode",
+            help="Switch the whole dashboard, including charts, between light and dark mode.",
+        )
 
     if filtered_df.empty:
         st.warning("No customers match the current filters. Widen the selection or use **Reset all filters**.")

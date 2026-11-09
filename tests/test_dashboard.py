@@ -23,6 +23,7 @@ from app.dashboard import (
     format_money,
     kruskal_pvalue,
     load_dashboard_data,
+    set_theme,
 )
 
 
@@ -218,7 +219,25 @@ class TestDashboardApp:
         assert not app.exception
         assert not app.warning
 
+    def test_dark_mode_renders(self) -> None:
+        app = self._run(dark_mode=True, f_city=["Mumbai"])
+        assert not app.exception
+        assert app.toggle(key="dark_mode").value is True
+
     def test_empty_selection_shows_warning_instead_of_failing(self) -> None:
         app = self._run(f_tier=["Missing"], f_reach=["Omnichannel (Both)"], f_age=["60+ (Senior)"], f_city=["Delhi"],
                         f_gender=["Unknown"], x_inverted=True)
         assert not app.exception
+
+
+class TestDashboardTheme:
+    """The light/dark switch swaps every palette color in place."""
+
+    def test_set_theme_switches_and_restores(self) -> None:
+        dark = set_theme(True)
+        assert dark.name == "dark"
+        assert dark.surface != "#FFFFFF"
+        assert dark.age_group_colors()["Unknown"] == dark.muted
+        light = set_theme(False)
+        assert light.name == "light"
+        assert light.surface == "#FFFFFF"
